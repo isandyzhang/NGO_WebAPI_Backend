@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "Z4d7JaM/CW/4zDixu7jBIFaRJDAGkJ4jNof3IT2PjDc=",
+  "Source": "NGO_WebAPI_Backend",
+  "BasePath": "_content/NGO_WebAPI_Backend",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

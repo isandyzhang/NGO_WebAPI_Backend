@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\NGO_WebAPI_Backend.props" />
+</Project>
