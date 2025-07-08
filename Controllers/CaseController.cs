@@ -8,35 +8,55 @@ namespace NGO_WebAPI_Backend.Controllers
 {
     /// <summary>
     /// 個案管理控制器
+    /// 
+    /// 這個控制器負責處理所有與個案相關的 HTTP 請求：
+    /// - 獲取個案列表
+    /// - 建立新個案
+    /// - 更新個案資料
+    /// - 刪除個案
+    /// - 搜尋個案
+    /// - 測試資料庫連接
+    /// 
+    /// 個案是 NGO 服務的對象，包含基本資料、聯絡方式、地址等資訊
     /// </summary>
-    [ApiController]
-    [Route("api/[controller]")]
+    [ApiController]  // 標記這是一個 API 控制器
+    [Route("api/[controller]")]  // 路由：api/case
     public class CaseController : ControllerBase
     {
+        // 資料庫上下文 - 用來存取資料庫
         private readonly ApplicationDbContext _context;
+        
+        // 日誌記錄器 - 用來記錄系統日誌
         private readonly ILogger<CaseController> _logger;
 
+        /// <summary>
+        /// 建構函式 - 依賴注入
+        /// </summary>
+        /// <param name="context">資料庫上下文</param>
+        /// <param name="logger">日誌記錄器</param>
         public CaseController(ApplicationDbContext context, ILogger<CaseController> logger)
         {
-            _context = context;
-            _logger = logger;
+            _context = context;  // 注入資料庫上下文
+            _logger = logger;    // 注入日誌記錄器
         }
 
         /// <summary>
-        /// 獲取所有個案
+        /// 獲取所有個案列表
+        /// HTTP GET: /api/case
         /// </summary>
-        /// <returns>個案列表</returns>
-        [HttpGet]
+        /// <returns>所有個案的列表，按建立時間降序排列</returns>
+        [HttpGet]  // 處理 GET 請求
         public async Task<ActionResult<IEnumerable<CaseResponse>>> GetAllCases()
         {
             try
             {
                 _logger.LogInformation("開始獲取所有個案");
 
+                // 查詢資料庫，包含關聯的 Worker 資料，按建立時間降序排列
                 var cases = await _context.Cases
-                    .Include(c => c.Worker)
-                    .OrderByDescending(c => c.CreatedAt)
-                    .Select(c => new CaseResponse
+                    .Include(c => c.Worker)  // 包含負責工作人員資料
+                    .OrderByDescending(c => c.CreatedAt)  // 按建立時間降序排列
+                    .Select(c => new CaseResponse  // 轉換為回應格式
                     {
                         CaseId = c.CaseId,
                         Name = c.Name,
@@ -54,42 +74,46 @@ namespace NGO_WebAPI_Backend.Controllers
                         City = c.City,
                         District = c.District,
                         DetailAddress = c.DetailAddress,
-                        WorkerName = c.Worker != null ? c.Worker.Name : null
+                        WorkerName = c.Worker != null ? c.Worker.Name : null  // 安全存取工作人員姓名
                     })
-                    .ToListAsync();
+                    .ToListAsync();  // 非同步執行查詢
 
                 _logger.LogInformation($"成功獲取 {cases.Count} 個個案");
-                return Ok(cases);
+                return Ok(cases);  // 回傳 200 OK 狀態碼
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "獲取個案列表時發生錯誤");
-                return StatusCode(500, new { message = "獲取個案列表失敗" });
+                return StatusCode(500, new { message = "獲取個案列表失敗" });  // 回傳 500 錯誤
             }
         }
 
         /// <summary>
-        /// 根據ID獲取個案
+        /// 根據 ID 獲取特定個案
+        /// HTTP GET: /api/case/{id}
         /// </summary>
-        /// <param name="id">個案ID</param>
-        /// <returns>個案詳情</returns>
-        [HttpGet("{id}")]
+        /// <param name="id">個案 ID</param>
+        /// <returns>特定個案的詳細資料</returns>
+        [HttpGet("{id}")]  // 處理 GET 請求，{id} 是路由參數
         public async Task<ActionResult<CaseResponse>> GetCaseById(int id)
         {
             try
             {
                 _logger.LogInformation($"開始獲取個案 ID: {id}");
 
+                // 根據 ID 查詢個案，包含工作人員資料
                 var caseItem = await _context.Cases
                     .Include(c => c.Worker)
-                    .FirstOrDefaultAsync(c => c.CaseId == id);
+                    .FirstOrDefaultAsync(c => c.CaseId == id);  // 找到第一個符合條件的個案
 
+                // 如果找不到個案，回傳 404 Not Found
                 if (caseItem == null)
                 {
                     _logger.LogWarning($"找不到個案 ID: {id}");
                     return NotFound(new { message = "找不到指定的個案" });
                 }
 
+                // 轉換為回應格式
                 var response = new CaseResponse
                 {
                     CaseId = caseItem.CaseId,
@@ -108,7 +132,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     City = caseItem.City,
                     District = caseItem.District,
                     DetailAddress = caseItem.DetailAddress,
-                    WorkerName = caseItem.Worker?.Name
+                    WorkerName = caseItem.Worker?.Name  // 使用 null 條件運算子
                 };
 
                 _logger.LogInformation($"成功獲取個案 ID: {id}");
@@ -122,15 +146,16 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
-        /// 搜尋個案
+        /// 搜尋個案（支援分頁）
+        /// HTTP GET: /api/case/search?query=關鍵字&page=1&pageSize=10
         /// </summary>
         /// <param name="query">搜尋關鍵字</param>
-        /// <param name="page">頁碼</param>
-        /// <param name="pageSize">每頁數量</param>
-        /// <returns>搜尋結果</returns>
-        [HttpGet("search")]
+        /// <param name="page">頁碼（預設 1）</param>
+        /// <param name="pageSize">每頁數量（預設 10）</param>
+        /// <returns>搜尋結果和分頁資訊</returns>
+        [HttpGet("search")]  // 處理 GET 請求：/api/case/search
         public async Task<ActionResult<IEnumerable<CaseResponse>>> SearchCases(
-            [FromQuery] string? query,
+            [FromQuery] string? query,  // 從 URL 查詢參數取得
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
@@ -138,30 +163,34 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogInformation($"開始搜尋個案，關鍵字: {query}, 頁碼: {page}, 每頁數量: {pageSize}");
 
+                // 建立查詢基礎
                 var queryable = _context.Cases
                     .Include(c => c.Worker)
-                    .AsQueryable();
+                    .AsQueryable();  // 轉換為可查詢物件
 
                 // 如果有搜尋關鍵字，進行模糊搜尋
                 if (!string.IsNullOrWhiteSpace(query))
                 {
                     queryable = queryable.Where(c =>
-                        c.Name.Contains(query) ||
-                        c.Phone.Contains(query) ||
-                        c.IdentityNumber.Contains(query) ||
-                        c.Email.Contains(query) ||
-                        c.Description.Contains(query) ||
-                        c.City.Contains(query) ||
-                        c.District.Contains(query)
+                        c.Name.Contains(query) ||           // 姓名包含關鍵字
+                        c.Phone.Contains(query) ||          // 電話包含關鍵字
+                        c.IdentityNumber.Contains(query) || // 身分證字號包含關鍵字
+                        c.Email.Contains(query) ||          // 電子郵件包含關鍵字
+                        c.Description.Contains(query) ||    // 描述包含關鍵字
+                        c.City.Contains(query) ||           // 城市包含關鍵字
+                        c.District.Contains(query)          // 區域包含關鍵字
                     );
                 }
 
+                // 計算總數量
                 var totalCount = await queryable.CountAsync();
+                
+                // 執行分頁查詢
                 var cases = await queryable
-                    .OrderByDescending(c => c.CreatedAt)
-                    .Skip((page - 1) * pageSize)
-                    .Take(pageSize)
-                    .Select(c => new CaseResponse
+                    .OrderByDescending(c => c.CreatedAt)  // 按建立時間降序排列
+                    .Skip((page - 1) * pageSize)  // 跳過前面的頁面
+                    .Take(pageSize)  // 只取當前頁面的資料
+                    .Select(c => new CaseResponse  // 轉換為回應格式
                     {
                         CaseId = c.CaseId,
                         Name = c.Name,
@@ -185,13 +214,14 @@ namespace NGO_WebAPI_Backend.Controllers
 
                 _logger.LogInformation($"搜尋完成，找到 {cases.Count} 個個案，總計 {totalCount} 個");
 
+                // 回傳包含分頁資訊的結果
                 return Ok(new
                 {
-                    data = cases,
-                    total = totalCount,
-                    page = page,
-                    pageSize = pageSize,
-                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+                    data = cases,  // 個案資料
+                    total = totalCount,  // 總數量
+                    page = page,  // 當前頁碼
+                    pageSize = pageSize,  // 每頁數量
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)  // 總頁數
                 });
             }
             catch (Exception ex)
@@ -203,27 +233,28 @@ namespace NGO_WebAPI_Backend.Controllers
 
         /// <summary>
         /// 建立新個案
+        /// HTTP POST: /api/case
         /// </summary>
-        /// <param name="request">建立個案請求</param>
-        /// <returns>建立的個案</returns>
-        [HttpPost]
+        /// <param name="request">建立個案的請求資料</param>
+        /// <returns>新建立的個案資料</returns>
+        [HttpPost]  // 處理 POST 請求
         public async Task<ActionResult<CaseResponse>> CreateCase([FromBody] CreateCaseRequest request)
         {
             try
             {
                 _logger.LogInformation($"開始建立新個案，姓名: {request.Name}");
 
-                // 檢查身分證字號是否已存在
+                // 檢查身分證字號是否已存在（防止重複建立）
                 var existingCase = await _context.Cases
                     .FirstOrDefaultAsync(c => c.IdentityNumber == request.IdentityNumber);
 
                 if (existingCase != null)
                 {
                     _logger.LogWarning($"身分證字號 {request.IdentityNumber} 已存在");
-                    return BadRequest(new { message = "此身分證字號已存在" });
+                    return BadRequest(new { message = "此身分證字號已存在" });  // 回傳 400 錯誤
                 }
 
-                // 建立新個案
+                // 建立新的個案實體
                 var newCase = new Case
                 {
                     Name = request.Name,
@@ -231,10 +262,10 @@ namespace NGO_WebAPI_Backend.Controllers
                     IdentityNumber = request.IdentityNumber,
                     Birthday = request.Birthday,
                     Address = request.Address,
-                    WorkerId = 1, // 預設分配給第一個工作人員
+                    WorkerId = 1,  // 預設分配給第一個工作人員
                     Description = request.Description,
-                    CreatedAt = DateTime.Now,
-                    Status = "Active",
+                    CreatedAt = DateTime.Now,  // 設定建立時間為當前時間
+                    Status = "Active",  // 新個案預設為啟用狀態
                     Email = request.Email,
                     Gender = request.Gender,
                     ProfileImage = request.ProfileImage,
@@ -243,14 +274,16 @@ namespace NGO_WebAPI_Backend.Controllers
                     DetailAddress = request.DetailAddress
                 };
 
+                // 將新個案加入資料庫
                 _context.Cases.Add(newCase);
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();  // 儲存變更
 
-                // 重新查詢以獲取完整資料
+                // 重新查詢以獲取完整資料（包含工作人員資訊）
                 var createdCase = await _context.Cases
                     .Include(c => c.Worker)
                     .FirstOrDefaultAsync(c => c.CaseId == newCase.CaseId);
 
+                // 轉換為回應格式
                 var response = new CaseResponse
                 {
                     CaseId = createdCase!.CaseId,
@@ -273,6 +306,8 @@ namespace NGO_WebAPI_Backend.Controllers
                 };
 
                 _logger.LogInformation($"成功建立個案 ID: {newCase.CaseId}");
+                
+                // 回傳 201 Created 狀態碼，並提供新資源的位置
                 return CreatedAtAction(nameof(GetCaseById), new { id = newCase.CaseId }, response);
             }
             catch (Exception ex)
@@ -283,18 +318,20 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
-        /// 更新個案
+        /// 更新個案資料
+        /// HTTP PUT: /api/case/{id}
         /// </summary>
-        /// <param name="id">個案ID</param>
-        /// <param name="request">更新個案請求</param>
+        /// <param name="id">要更新的個案 ID</param>
+        /// <param name="request">更新的資料</param>
         /// <returns>更新結果</returns>
-        [HttpPut("{id}")]
+        [HttpPut("{id}")]  // 處理 PUT 請求
         public async Task<ActionResult> UpdateCase(int id, [FromBody] UpdateCaseRequest request)
         {
             try
             {
                 _logger.LogInformation($"開始更新個案 ID: {id}");
 
+                // 根據 ID 查找個案
                 var caseItem = await _context.Cases.FindAsync(id);
                 if (caseItem == null)
                 {
@@ -302,7 +339,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     return NotFound(new { message = "找不到指定的個案" });
                 }
 
-                // 更新欄位
+                // 只更新有提供的欄位（部分更新）
                 if (request.Name != null) caseItem.Name = request.Name;
                 if (request.Phone != null) caseItem.Phone = request.Phone;
                 if (request.IdentityNumber != null) caseItem.IdentityNumber = request.IdentityNumber;
@@ -317,10 +354,11 @@ namespace NGO_WebAPI_Backend.Controllers
                 if (request.District != null) caseItem.District = request.District;
                 if (request.DetailAddress != null) caseItem.DetailAddress = request.DetailAddress;
 
+                // 儲存變更
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"成功更新個案 ID: {id}");
-                return NoContent();
+                return NoContent();  // 回傳 204 No Content（更新成功但沒有內容回傳）
             }
             catch (Exception ex)
             {
@@ -331,16 +369,18 @@ namespace NGO_WebAPI_Backend.Controllers
 
         /// <summary>
         /// 刪除個案
+        /// HTTP DELETE: /api/case/{id}
         /// </summary>
-        /// <param name="id">個案ID</param>
+        /// <param name="id">要刪除的個案 ID</param>
         /// <returns>刪除結果</returns>
-        [HttpDelete("{id}")]
+        [HttpDelete("{id}")]  // 處理 DELETE 請求
         public async Task<ActionResult> DeleteCase(int id)
         {
             try
             {
                 _logger.LogInformation($"開始刪除個案 ID: {id}");
 
+                // 根據 ID 查找個案
                 var caseItem = await _context.Cases.FindAsync(id);
                 if (caseItem == null)
                 {
@@ -348,11 +388,12 @@ namespace NGO_WebAPI_Backend.Controllers
                     return NotFound(new { message = "找不到指定的個案" });
                 }
 
+                // 從資料庫中移除個案
                 _context.Cases.Remove(caseItem);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"成功刪除個案 ID: {id}");
-                return NoContent();
+                return NoContent();  // 回傳 204 No Content
             }
             catch (Exception ex)
             {
@@ -363,20 +404,25 @@ namespace NGO_WebAPI_Backend.Controllers
 
         /// <summary>
         /// 測試端點 - 檢查資料庫連接
+        /// HTTP GET: /api/case/test
         /// </summary>
         /// <returns>測試結果</returns>
-        [HttpGet("test")]
+        [HttpGet("test")]  // 處理 GET 請求：/api/case/test
         public async Task<ActionResult> TestConnection()
         {
             try
             {
                 _logger.LogInformation("開始測試個案資料庫連接");
 
+                // 測試查詢 - 計算個案數量
                 var count = await _context.Cases.CountAsync();
+                
+                // 取得一個範例個案
                 var sampleCase = await _context.Cases.FirstOrDefaultAsync();
 
                 _logger.LogInformation($"資料庫連接成功，個案總數: {count}");
 
+                // 回傳測試結果
                 return Ok(new
                 {
                     message = "個案資料庫連接成功",
@@ -395,5 +441,73 @@ namespace NGO_WebAPI_Backend.Controllers
                 return StatusCode(500, new { message = "個案資料庫連接失敗", error = ex.Message });
             }
         }
+    }
+
+    // ==================== API 請求/回應模型 ====================
+
+    /// <summary>
+    /// 建立個案的請求模型
+    /// 定義前端傳送建立個案時需要的資料格式
+    /// </summary>
+    public class CreateCaseRequest
+    {
+        public string Name { get; set; } = string.Empty;           // 個案姓名（必填）
+        public string Phone { get; set; } = string.Empty;          // 聯絡電話（必填）
+        public string IdentityNumber { get; set; } = string.Empty; // 身分證字號（必填）
+        public DateTime? Birthday { get; set; }                    // 生日（可選）
+        public string Address { get; set; } = string.Empty;        // 地址（必填）
+        public string? Description { get; set; }                   // 描述（可選）
+        public string? Email { get; set; }                         // 電子郵件（可選）
+        public string? Gender { get; set; }                        // 性別（可選）
+        public string? ProfileImage { get; set; }                  // 大頭照（可選）
+        public string? City { get; set; }                          // 城市（可選）
+        public string? District { get; set; }                      // 區域（可選）
+        public string? DetailAddress { get; set; }                 // 詳細地址（可選）
+    }
+
+    /// <summary>
+    /// 更新個案的請求模型
+    /// 所有欄位都是可選的，只更新有提供的欄位
+    /// </summary>
+    public class UpdateCaseRequest
+    {
+        public string? Name { get; set; }                          // 個案姓名
+        public string? Phone { get; set; }                         // 聯絡電話
+        public string? IdentityNumber { get; set; }                // 身分證字號
+        public DateTime? Birthday { get; set; }                    // 生日
+        public string? Address { get; set; }                       // 地址
+        public string? Description { get; set; }                   // 描述
+        public string? Status { get; set; }                        // 狀態
+        public string? Email { get; set; }                         // 電子郵件
+        public string? Gender { get; set; }                        // 性別
+        public string? ProfileImage { get; set; }                  // 大頭照
+        public string? City { get; set; }                          // 城市
+        public string? District { get; set; }                      // 區域
+        public string? DetailAddress { get; set; }                 // 詳細地址
+    }
+
+    /// <summary>
+    /// 個案回應模型
+    /// 定義回傳給前端的個案資料格式
+    /// </summary>
+    public class CaseResponse
+    {
+        public int CaseId { get; set; }                            // 個案 ID
+        public string Name { get; set; } = string.Empty;           // 個案姓名
+        public string Phone { get; set; } = string.Empty;          // 聯絡電話
+        public string IdentityNumber { get; set; } = string.Empty; // 身分證字號
+        public DateTime? Birthday { get; set; }                    // 生日
+        public string Address { get; set; } = string.Empty;        // 地址
+        public int WorkerId { get; set; }                          // 負責工作人員 ID
+        public string? Description { get; set; }                   // 描述
+        public DateTime CreatedAt { get; set; }                    // 建立時間
+        public string Status { get; set; } = string.Empty;         // 狀態
+        public string? Email { get; set; }                         // 電子郵件
+        public string? Gender { get; set; }                        // 性別
+        public string? ProfileImage { get; set; }                  // 大頭照
+        public string? City { get; set; }                          // 城市
+        public string? District { get; set; }                      // 區域
+        public string? DetailAddress { get; set; }                 // 詳細地址
+        public string? WorkerName { get; set; }                    // 工作人員姓名（關聯查詢）
     }
 } 
