@@ -243,6 +243,56 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
+        /// 分頁查詢活動列表
+        /// </summary>
+        [HttpGet("paged")]
+        public async Task<ActionResult> GetPagedActivities([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            try
+            {
+                if (page < 1) page = 1;
+                if (pageSize < 1) pageSize = 10;
+
+                var query = _context.Activities.Include(a => a.Worker).OrderByDescending(a => a.StartDate);
+                var total = await query.CountAsync();
+                var activitiesData = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                var activities = activitiesData.Select(a => new ActivityResponse
+                {
+                    ActivityId = a.ActivityId,
+                    ActivityName = a.ActivityName ?? string.Empty,
+                    Description = a.Description,
+                    ImageUrl = a.ImageUrl,
+                    Location = a.Location ?? string.Empty,
+                    MaxParticipants = a.MaxParticipants ?? 0,
+                    CurrentParticipants = a.CurrentParticipants ?? 0,
+                    StartDate = a.StartDate?.ToDateTime(TimeOnly.MinValue),
+                    EndDate = a.EndDate?.ToDateTime(TimeOnly.MinValue),
+                    SignupDeadline = a.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
+                    WorkerId = a.WorkerId ?? 0,
+                    TargetAudience = a.TargetAudience,
+                    Status = a.Status ?? string.Empty,
+                    WorkerName = a.Worker?.Name
+                }).ToList();
+
+                return Ok(new {
+                    data = activities,
+                    total,
+                    page,
+                    pageSize
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "分頁查詢活動時發生錯誤");
+                return StatusCode(500, new { message = "分頁查詢活動失敗" });
+            }
+        }
+
+        /// <summary>
         /// 測試連接
         /// </summary>
         [HttpGet("test")]
