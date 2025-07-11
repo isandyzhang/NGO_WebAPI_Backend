@@ -7,6 +7,9 @@ public partial class Schedule
 {
     public int ScheduleId { get; set; }
 
+    public string? EventType { get; set; }
+    public string? EventName { get; set; }
+
     public int? WorkerId { get; set; }
 
     public int? CaseId { get; set; }
