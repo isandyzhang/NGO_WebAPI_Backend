@@ -27,18 +27,32 @@ namespace NGO_WebAPI_Backend.Controllers
             _logger = logger;
         }
 
+
         /// <summary>
-        /// 根據使用者 WorkerId 取得行事曆活動列表
-        /// HTTP GET: /api/schedule/worker/{workerId}
+        /// 搜尋指定員工 ID 的所有排程活動
+        /// GET: /api/schedule/select/{workid}
         /// </summary>
-        /// <param name="workerId">工作人員 ID</param>
-        /// <returns>該使用者的所有活動列表</returns>
-        [HttpGet("worker/{workerId}")]
-        public async Task<ActionResult<IEnumerable<Schedule>>> GetSchedulesByWorker(int workerId)
+        [HttpGet("select/{workid}")]
+        public async Task<ActionResult<IEnumerable<object>>> GetSchedulesByWorkerId(int workid)
         {
             var schedules = await _context.Schedules
-                .Where(s => s.WorkerId == workerId)
+                .Where(s => s.WorkerId == workid)
+                .OrderByDescending(s => s.StartTime)
+                .Select(s => new
+                {
+                    s.WorkerId,
+                    s.EventType,
+                    s.EventName,
+                    s.Description,
+                    s.StartTime,
+                    s.EndTime
+                })
                 .ToListAsync();
+
+            if (!schedules.Any())
+            {
+                return NotFound("查無資料");
+            }
 
             return Ok(schedules);
         }
@@ -55,7 +69,7 @@ namespace NGO_WebAPI_Backend.Controllers
         {
             _context.Schedules.Add(schedule);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetSchedulesByWorker), new { workerId = schedule.WorkerId }, schedule);
+            return CreatedAtAction(nameof(GetSchedulesByWorkerId), new { workerId = schedule.WorkerId }, schedule);
         }
 
         /// <summary>
@@ -63,17 +77,24 @@ namespace NGO_WebAPI_Backend.Controllers
         /// HTTP PUT: /api/schedule/{id}
         /// </summary>
         /// <param name="id">活動 ID</param>
-        /// <param name="schedule">更新後的活動資料</param>
+        /// <param name="dto">更新後的活動資料（DTO）</param>
         /// <returns>HTTP 狀態碼</returns>
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSchedule(int id, Schedule schedule)
+        public async Task<IActionResult> UpdateSchedule(int id, ScheduleDto dto)
         {
-            if (id != schedule.ScheduleId)
+            var schedule = await _context.Schedules.FindAsync(id);
+            if (schedule == null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            _context.Entry(schedule).State = EntityState.Modified;
+            // 將 DTO 中的欄位值套用到實體上
+            schedule.WorkerId = dto.WorkerId ?? schedule.WorkerId;
+            schedule.EventType = dto.EventType ?? schedule.EventType;
+            schedule.EventName = dto.EventName ?? schedule.EventName;
+            schedule.Description = dto.Description ?? schedule.Description;
+            schedule.StartTime = dto.StartTime;
+            schedule.EndTime = dto.EndTime;
 
             try
             {
@@ -93,6 +114,7 @@ namespace NGO_WebAPI_Backend.Controllers
 
             return NoContent();
         }
+
 
         /// <summary>
         /// 刪除指定 ID 的行事曆活動
@@ -126,21 +148,17 @@ namespace NGO_WebAPI_Backend.Controllers
         public async Task<ActionResult<IEnumerable<ScheduleDto>>> GetAllSchedulesForTest()
         {
             var schedules = await _context.Schedules
-                .Include(s => s.Worker)
-                .Include(s => s.Case)
-                .OrderByDescending(s => s.StartTime)
-                .Select(s => new ScheduleDto
-                {
-                    ScheduleId = s.ScheduleId,
-                    Description = s.Description,
-                    StartTime = s.StartTime,
-                    EndTime = s.EndTime,
-                    Priority = s.Priority,
-                    Status = s.Status,
-                    WorkerName = s.Worker != null ? s.Worker.Name : null,
-                    CaseEmail = s.Case != null ? s.Case.Email : null
-                })
-                .ToListAsync();
+    .OrderByDescending(s => s.StartTime)
+    .Select(s => new ScheduleDto
+    {
+        WorkerId = s.WorkerId,
+        EventType = s.EventType,
+        EventName = s.EventName,
+        Description = s.Description,
+        StartTime = s.StartTime,
+        EndTime = s.EndTime
+    })
+    .ToListAsync();
 
             return Ok(schedules);
         }
@@ -157,6 +175,7 @@ namespace NGO_WebAPI_Backend.Controllers
             public string Description { get; set; } = string.Empty; // 活動描述（必填）
             public DateTime StartTime { get; set; }               // 開始時間（必填）
             public DateTime EndTime { get; set; }                 // 結束時間（必填）
+            public string EventType { get; set; } = "中";
             public string Priority { get; set; } = "中";          // 優先順序（預設中）
             public string Status { get; set; } = "進行中";        // 狀態（預設進行中）
         }
@@ -194,15 +213,12 @@ namespace NGO_WebAPI_Backend.Controllers
 
         public class ScheduleDto
         {
-            public int ScheduleId { get; set; }
-            public string? Description { get; set; }
-            public DateTime? StartTime { get; set; }
+            public int? WorkerId { get; set; }                 // 工作人員 ID
+            public string? EventType { get; set; }            // 事件種類（如：個案訪問、會議）
+            public string? EventName { get; set; }            // 事件名稱（如：Emergency Visit J）
+            public string? Description { get; set; }          // 備註說明
+            public DateTime? StartTime { get; set; }           // 開始時間
             public DateTime? EndTime { get; set; }
-            public string? Priority { get; set; }
-            public string? Status { get; set; }
-
-            public string? WorkerName { get; set; }
-            public string? CaseEmail { get; set; }
         }
     }
 }
