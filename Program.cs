@@ -40,7 +40,10 @@ if (app.Environment.IsDevelopment())
 // 启用CORS
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 
 
