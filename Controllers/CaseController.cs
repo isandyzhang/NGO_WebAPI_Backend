@@ -405,45 +405,7 @@ namespace NGO_WebAPI_Backend.Controllers
             }
         }
 
-        /// <summary>
-        /// 測試端點 - 檢查資料庫連接
-        /// HTTP GET: /api/case/test
-        /// </summary>
-        /// <returns>測試結果</returns>
-        [HttpGet("test")]  // 處理 GET 請求：/api/case/test
-        public async Task<ActionResult> TestConnection()
-        {
-            try
-            {
-                _logger.LogInformation("開始測試個案資料庫連接");
 
-                // 測試查詢 - 計算個案數量
-                var count = await _context.Cases.CountAsync();
-                
-                // 取得一個範例個案
-                var sampleCase = await _context.Cases.FirstOrDefaultAsync();
-
-                _logger.LogInformation($"資料庫連接成功，個案總數: {count}");
-
-                // 回傳測試結果
-                return Ok(new
-                {
-                    message = "個案資料庫連接成功",
-                    totalCases = count,
-                    sampleCase = sampleCase != null ? new
-                    {
-                        id = sampleCase.CaseId,
-                        name = sampleCase.Name,
-                        phone = sampleCase.Phone
-                    } : null
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "測試個案資料庫連接時發生錯誤");
-                return StatusCode(500, new { message = "個案資料庫連接失敗", error = ex.Message });
-            }
-        }
     }
 
     // ==================== API 請求/回應模型 ====================
