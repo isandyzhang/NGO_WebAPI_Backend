@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using NGO_WebAPI_Backend.Data;
+
 using NGO_WebAPI_Backend.Models;
 
 namespace NGO_WebAPI_Backend.Controllers
@@ -12,7 +12,7 @@ namespace NGO_WebAPI_Backend.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly MyDbContext _context;
         private readonly ILogger<AuthController> _logger;
 
         /// <summary>
@@ -20,7 +20,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// </summary>
         /// <param name="context">資料庫上下文</param>
         /// <param name="logger">記錄器</param>
-        public AuthController(ApplicationDbContext context, ILogger<AuthController> logger)
+        public AuthController(MyDbContext context, ILogger<AuthController> logger)
         {
             _context = context;
             _logger = logger;
@@ -154,5 +154,34 @@ namespace NGO_WebAPI_Backend.Controllers
                 return StatusCode(500, "取得工作人員詳細資料時發生錯誤");
             }
         }
+    }
+
+    /// <summary>
+    /// 登入請求模型
+    /// </summary>
+    public class LoginRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// 登入回應模型
+    /// </summary>
+    public class LoginResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public WorkerInfo? Worker { get; set; }
+    }
+
+    /// <summary>
+    /// 工作人員資訊模型
+    /// </summary>
+    public class WorkerInfo
+    {
+        public int WorkerId { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
     }
 } 
