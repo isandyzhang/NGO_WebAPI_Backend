@@ -246,14 +246,49 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 分頁查詢活動列表
         /// </summary>
         [HttpGet("paged")]
-        public async Task<ActionResult> GetPagedActivities([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult> GetPagedActivities(
+            [FromQuery] int page = 1, 
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? content = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? audience = null)
         {
             try
             {
+                _logger.LogInformation($"查詢參數: page={page}, pageSize={pageSize}, status='{status}', audience='{audience}', content='{content}'");
+                _logger.LogInformation($"參數檢查: status IsNullOrEmpty={string.IsNullOrEmpty(status)}, audience IsNullOrEmpty={string.IsNullOrEmpty(audience)}, content IsNullOrEmpty={string.IsNullOrEmpty(content)}");
                 if (page < 1) page = 1;
                 if (pageSize < 1) pageSize = 10;
 
-                var query = _context.Activities.Include(a => a.Worker).OrderByDescending(a => a.StartDate);
+                var query = _context.Activities.Include(a => a.Worker).AsQueryable();
+
+                // 應用搜尋條件
+                if (!string.IsNullOrEmpty(status))
+                {
+                    _logger.LogInformation($"加入 status 條件: {status}");
+                    query = query.Where(a => a.Status != null && a.Status.Trim().ToLower() == status.Trim().ToLower());
+                }
+                if (!string.IsNullOrEmpty(audience))
+                {
+                    _logger.LogInformation($"加入 audience 條件: {audience}");
+                    query = query.Where(a => a.TargetAudience != null && a.TargetAudience.Trim().ToLower() == audience.Trim().ToLower());
+                }
+                if (!string.IsNullOrEmpty(content))
+                {
+                    _logger.LogInformation($"加入 content 條件: {content}");
+                    query = query.Where(a =>
+                        (a.ActivityName != null && a.ActivityName.ToLower().Contains(content.ToLower())) ||
+                        (a.Location != null && a.Location.ToLower().Contains(content.ToLower())) ||
+                        (a.Description != null && a.Description.ToLower().Contains(content.ToLower()))
+                    );
+                }
+
+                // log SQL
+                _logger.LogInformation($"查詢 SQL: {query.ToQueryString()}");
+
+                // 排序
+                query = query.OrderByDescending(a => a.StartDate);
+
                 var total = await query.CountAsync();
                 var activitiesData = await query
                     .Skip((page - 1) * pageSize)
