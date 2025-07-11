@@ -123,15 +123,26 @@ namespace NGO_WebAPI_Backend.Controllers
         /// </summary>
         /// <returns>所有活動的清單</returns>
         [HttpGet("test")]
-        public async Task<ActionResult<IEnumerable<Schedule>>> GetAllSchedulesForTest()
+        public async Task<ActionResult<IEnumerable<ScheduleDto>>> GetAllSchedulesForTest()
         {
-            var allSchedules = await _context.Schedules
+            var schedules = await _context.Schedules
                 .Include(s => s.Worker)
                 .Include(s => s.Case)
                 .OrderByDescending(s => s.StartTime)
+                .Select(s => new ScheduleDto
+                {
+                    ScheduleId = s.ScheduleId,
+                    Description = s.Description,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
+                    Priority = s.Priority,
+                    Status = s.Status,
+                    WorkerName = s.Worker != null ? s.Worker.Name : null,
+                    CaseEmail = s.Case != null ? s.Case.Email : null
+                })
                 .ToListAsync();
 
-            return Ok(allSchedules);
+            return Ok(schedules);
         }
 
         // ==================== API 請求/回應模型 ====================
@@ -179,6 +190,19 @@ namespace NGO_WebAPI_Backend.Controllers
 
             public string? WorkerName { get; set; }               // 社工姓名（可選，關聯查詢）
             public string? CaseName { get; set; }                 // 個案姓名（可選，關聯查詢）
+        }
+
+        public class ScheduleDto
+        {
+            public int ScheduleId { get; set; }
+            public string? Description { get; set; }
+            public DateTime? StartTime { get; set; }
+            public DateTime? EndTime { get; set; }
+            public string? Priority { get; set; }
+            public string? Status { get; set; }
+
+            public string? WorkerName { get; set; }
+            public string? CaseEmail { get; set; }
         }
     }
 }
