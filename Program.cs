@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using NGO_WebAPI_Backend.Data;
+using NGO_WebAPI_Backend.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +11,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
 // 配置Entity Framework和数据库连接
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+builder.Services.AddDbContext<MyDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // 添加CORS支持（为了前端能访问API）
@@ -44,7 +44,7 @@ var summaries = new[]
 };
 
 // 測試資料庫連接的API端點
-app.MapGet("/test-database", async (ApplicationDbContext context) =>
+app.MapGet("/test-database", async (MyDbContext context) =>
 {
     try
     {
@@ -55,7 +55,7 @@ app.MapGet("/test-database", async (ApplicationDbContext context) =>
         {
             return Results.Ok(new { 
                 message = "資料庫連接成功！", 
-                server = "ANDY\\SQLEXPRESS",
+                server = "ngosqlserver.database.windows.net",
                 database = "NGOPlatformDB",
                 status = "已連接" 
             });
@@ -64,7 +64,7 @@ app.MapGet("/test-database", async (ApplicationDbContext context) =>
         {
             return Results.BadRequest(new { 
                 message = "無法連接到資料庫", 
-                server = "ANDY\\SQLEXPRESS",
+                server = "ngosqlserver.database.windows.net",
                 database = "NGOPlatformDB",
                 status = "連接失敗" 
             });
@@ -75,7 +75,7 @@ app.MapGet("/test-database", async (ApplicationDbContext context) =>
         return Results.BadRequest(new { 
             message = "資料庫連接錯誤", 
             error = ex.Message,
-            server = "ANDY\\SQLEXPRESS",
+            server = "ngosqlserver.database.windows.net",
             database = "NGOPlatformDB",
             status = "錯誤" 
         });

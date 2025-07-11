@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using NGO_WebAPI_Backend.Data;
+
 using NGO_WebAPI_Backend.Models;
 
 namespace NGO_WebAPI_Backend.Controllers
@@ -9,10 +9,10 @@ namespace NGO_WebAPI_Backend.Controllers
     [Route("api/[controller]")]
     public class RegistrationReviewController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly MyDbContext _context;
         private readonly ILogger<RegistrationReviewController> _logger;
 
-        public RegistrationReviewController(ApplicationDbContext context, ILogger<RegistrationReviewController> logger)
+        public RegistrationReviewController(MyDbContext context, ILogger<RegistrationReviewController> logger)
         {
             _context = context;
             _logger = logger;
@@ -31,7 +31,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     .Include(r => r.Activity)
                     .Select(r => new
                     {
-                        Id = r.Id,
+                        Id = r.RegistrationId,
                         CaseName = r.Case != null ? r.Case.Name : "未知個案",
                         ActivityName = r.Activity != null ? r.Activity.ActivityName : "未知活動",
                         Status = r.Status
@@ -60,7 +60,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 var registrations = await _context.UserActivityRegistrations
                     .Select(r => new
                     {
-                        Id = r.Id,
+                        Id = r.RegistrationId,
                         UserId = r.UserId,
                         UserName = $"用戶{r.UserId}", // 暫時使用 UserId 作為顯示名稱
                         ActivityId = r.ActivityId,
@@ -104,9 +104,9 @@ namespace NGO_WebAPI_Backend.Controllers
 
                 // 更新參與人數
                 if (reg.Status == "Approved" && req.Status == "Cancelled")
-                    activity.CurrentParticipants = Math.Max(0, activity.CurrentParticipants - 1);
+                    activity.CurrentParticipants = Math.Max(0, (activity.CurrentParticipants ?? 0) - 1);
                 if (reg.Status != "Approved" && req.Status == "Approved")
-                    activity.CurrentParticipants += 1;
+                    activity.CurrentParticipants = (activity.CurrentParticipants ?? 0) + 1;
 
                 reg.Status = req.Status;
                 await _context.SaveChangesAsync();
@@ -147,9 +147,9 @@ namespace NGO_WebAPI_Backend.Controllers
 
                 // 更新參與人數
                 if (reg.Status == "Approved" && req.Status == "Cancelled")
-                    activity.CurrentParticipants = Math.Max(0, activity.CurrentParticipants - delta);
+                    activity.CurrentParticipants = Math.Max(0, (activity.CurrentParticipants ?? 0) - delta);
                 if (reg.Status != "Approved" && req.Status == "Approved")
-                    activity.CurrentParticipants += delta;
+                    activity.CurrentParticipants = (activity.CurrentParticipants ?? 0) + delta;
 
                 reg.Status = req.Status;
                 await _context.SaveChangesAsync();

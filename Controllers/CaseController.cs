@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
-using NGO_WebAPI_Backend.Data;
 using System.Linq;
 
 namespace NGO_WebAPI_Backend.Controllers
@@ -24,7 +23,7 @@ namespace NGO_WebAPI_Backend.Controllers
     public class CaseController : ControllerBase
     {
         // 資料庫上下文 - 用來存取資料庫
-        private readonly ApplicationDbContext _context;
+        private readonly MyDbContext _context;
         
         // 日誌記錄器 - 用來記錄系統日誌
         private readonly ILogger<CaseController> _logger;
@@ -34,7 +33,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// </summary>
         /// <param name="context">資料庫上下文</param>
         /// <param name="logger">日誌記錄器</param>
-        public CaseController(ApplicationDbContext context, ILogger<CaseController> logger)
+        public CaseController(MyDbContext context, ILogger<CaseController> logger)
         {
             _context = context;  // 注入資料庫上下文
             _logger = logger;    // 注入日誌記錄器
@@ -53,30 +52,32 @@ namespace NGO_WebAPI_Backend.Controllers
                 _logger.LogInformation("開始獲取所有個案");
 
                 // 查詢資料庫，包含關聯的 Worker 資料，按建立時間降序排列
-                var cases = await _context.Cases
+                var casesData = await _context.Cases
                     .Include(c => c.Worker)  // 包含負責工作人員資料
                     .OrderByDescending(c => c.CreatedAt)  // 按建立時間降序排列
-                    .Select(c => new CaseResponse  // 轉換為回應格式
-                    {
-                        CaseId = c.CaseId,
-                        Name = c.Name,
-                        Phone = c.Phone,
-                        IdentityNumber = c.IdentityNumber,
-                        Birthday = c.Birthday,
-                        Address = c.Address,
-                        WorkerId = c.WorkerId,
-                        Description = c.Description,
-                        CreatedAt = c.CreatedAt,
-                        Status = c.Status,
-                        Email = c.Email,
-                        Gender = c.Gender,
-                        ProfileImage = c.ProfileImage,
-                        City = c.City,
-                        District = c.District,
-                        DetailAddress = c.DetailAddress,
-                        WorkerName = c.Worker != null ? c.Worker.Name : null  // 安全存取工作人員姓名
-                    })
                     .ToListAsync();  // 非同步執行查詢
+
+                // 轉換為回應格式
+                var cases = casesData.Select(c => new CaseResponse
+                {
+                    CaseId = c.CaseId,
+                    Name = c.Name ?? string.Empty,
+                    Phone = c.Phone ?? string.Empty,
+                    IdentityNumber = c.IdentityNumber ?? string.Empty,
+                    Birthday = c.Birthday?.ToDateTime(TimeOnly.MinValue),
+                    Address = c.Address ?? string.Empty,
+                    WorkerId = c.WorkerId ?? 0,
+                    Description = c.Description,
+                    CreatedAt = c.CreatedAt ?? DateTime.Now,
+                    Status = c.Status ?? string.Empty,
+                    Email = c.Email,
+                    Gender = c.Gender,
+                    ProfileImage = c.ProfileImage,
+                    City = c.City,
+                    District = c.District,
+                    DetailAddress = c.DetailAddress,
+                    WorkerName = c.Worker?.Name  // 安全存取工作人員姓名
+                }).ToList();
 
                 _logger.LogInformation($"成功獲取 {cases.Count} 個個案");
                 return Ok(cases);  // 回傳 200 OK 狀態碼
@@ -117,15 +118,15 @@ namespace NGO_WebAPI_Backend.Controllers
                 var response = new CaseResponse
                 {
                     CaseId = caseItem.CaseId,
-                    Name = caseItem.Name,
-                    Phone = caseItem.Phone,
-                    IdentityNumber = caseItem.IdentityNumber,
-                    Birthday = caseItem.Birthday,
-                    Address = caseItem.Address,
-                    WorkerId = caseItem.WorkerId,
+                    Name = caseItem.Name ?? string.Empty,
+                    Phone = caseItem.Phone ?? string.Empty,
+                    IdentityNumber = caseItem.IdentityNumber ?? string.Empty,
+                    Birthday = caseItem.Birthday?.ToDateTime(TimeOnly.MinValue),
+                    Address = caseItem.Address ?? string.Empty,
+                    WorkerId = caseItem.WorkerId ?? 0,
                     Description = caseItem.Description,
-                    CreatedAt = caseItem.CreatedAt,
-                    Status = caseItem.Status,
+                    CreatedAt = caseItem.CreatedAt ?? DateTime.Now,
+                    Status = caseItem.Status ?? string.Empty,
                     Email = caseItem.Email,
                     Gender = caseItem.Gender,
                     ProfileImage = caseItem.ProfileImage,
@@ -186,31 +187,33 @@ namespace NGO_WebAPI_Backend.Controllers
                 var totalCount = await queryable.CountAsync();
                 
                 // 執行分頁查詢
-                var cases = await queryable
+                var casesData = await queryable
                     .OrderByDescending(c => c.CreatedAt)  // 按建立時間降序排列
                     .Skip((page - 1) * pageSize)  // 跳過前面的頁面
                     .Take(pageSize)  // 只取當前頁面的資料
-                    .Select(c => new CaseResponse  // 轉換為回應格式
-                    {
-                        CaseId = c.CaseId,
-                        Name = c.Name,
-                        Phone = c.Phone,
-                        IdentityNumber = c.IdentityNumber,
-                        Birthday = c.Birthday,
-                        Address = c.Address,
-                        WorkerId = c.WorkerId,
-                        Description = c.Description,
-                        CreatedAt = c.CreatedAt,
-                        Status = c.Status,
-                        Email = c.Email,
-                        Gender = c.Gender,
-                        ProfileImage = c.ProfileImage,
-                        City = c.City,
-                        District = c.District,
-                        DetailAddress = c.DetailAddress,
-                        WorkerName = c.Worker != null ? c.Worker.Name : null
-                    })
                     .ToListAsync();
+
+                // 轉換為回應格式
+                var cases = casesData.Select(c => new CaseResponse
+                {
+                    CaseId = c.CaseId,
+                    Name = c.Name ?? string.Empty,
+                    Phone = c.Phone ?? string.Empty,
+                    IdentityNumber = c.IdentityNumber ?? string.Empty,
+                    Birthday = c.Birthday?.ToDateTime(TimeOnly.MinValue),
+                    Address = c.Address ?? string.Empty,
+                    WorkerId = c.WorkerId ?? 0,
+                    Description = c.Description,
+                    CreatedAt = c.CreatedAt ?? DateTime.Now,
+                    Status = c.Status ?? string.Empty,
+                    Email = c.Email,
+                    Gender = c.Gender,
+                    ProfileImage = c.ProfileImage,
+                    City = c.City,
+                    District = c.District,
+                    DetailAddress = c.DetailAddress,
+                    WorkerName = c.Worker?.Name
+                }).ToList();
 
                 _logger.LogInformation($"搜尋完成，找到 {cases.Count} 個個案，總計 {totalCount} 個");
 
@@ -260,7 +263,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     Name = request.Name,
                     Phone = request.Phone,
                     IdentityNumber = request.IdentityNumber,
-                    Birthday = request.Birthday,
+                    Birthday = request.Birthday.HasValue ? DateOnly.FromDateTime(request.Birthday.Value) : null,
                     Address = request.Address,
                     WorkerId = 1,  // 預設分配給第一個工作人員
                     Description = request.Description,
@@ -287,15 +290,15 @@ namespace NGO_WebAPI_Backend.Controllers
                 var response = new CaseResponse
                 {
                     CaseId = createdCase!.CaseId,
-                    Name = createdCase.Name,
-                    Phone = createdCase.Phone,
-                    IdentityNumber = createdCase.IdentityNumber,
-                    Birthday = createdCase.Birthday,
-                    Address = createdCase.Address,
-                    WorkerId = createdCase.WorkerId,
+                    Name = createdCase.Name ?? string.Empty,
+                    Phone = createdCase.Phone ?? string.Empty,
+                    IdentityNumber = createdCase.IdentityNumber ?? string.Empty,
+                    Birthday = createdCase.Birthday?.ToDateTime(TimeOnly.MinValue),
+                    Address = createdCase.Address ?? string.Empty,
+                    WorkerId = createdCase.WorkerId ?? 0,
                     Description = createdCase.Description,
-                    CreatedAt = createdCase.CreatedAt,
-                    Status = createdCase.Status,
+                    CreatedAt = createdCase.CreatedAt ?? DateTime.Now,
+                    Status = createdCase.Status ?? string.Empty,
                     Email = createdCase.Email,
                     Gender = createdCase.Gender,
                     ProfileImage = createdCase.ProfileImage,
@@ -343,7 +346,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 if (request.Name != null) caseItem.Name = request.Name;
                 if (request.Phone != null) caseItem.Phone = request.Phone;
                 if (request.IdentityNumber != null) caseItem.IdentityNumber = request.IdentityNumber;
-                if (request.Birthday.HasValue) caseItem.Birthday = request.Birthday;
+                if (request.Birthday.HasValue) caseItem.Birthday = DateOnly.FromDateTime(request.Birthday.Value);
                 if (request.Address != null) caseItem.Address = request.Address;
                 if (request.Description != null) caseItem.Description = request.Description;
                 if (request.Status != null) caseItem.Status = request.Status;

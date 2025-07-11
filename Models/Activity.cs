@@ -1,47 +1,41 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace NGO_WebAPI_Backend.Models
+namespace NGO_WebAPI_Backend.Models;
+
+public partial class Activity
 {
-    public class Activity
-    {
-        [Key]
-        public int ActivityId { get; set; }
-        
-        [Required]
-        [StringLength(200)]
-        public string ActivityName { get; set; } = string.Empty;
-        
-        [StringLength(1000)]
-        public string? Description { get; set; }
-        
-        [StringLength(500)]
-        public string? ImageUrl { get; set; }
-        
-        [Required]
-        [StringLength(200)]
-        public string Location { get; set; } = string.Empty;
-        
-        public int MaxParticipants { get; set; }
-        
-        public int CurrentParticipants { get; set; }
-        
-        public DateTime? StartDate { get; set; }
-        
-        public DateTime? EndDate { get; set; }
-        
-        public DateTime? SignupDeadline { get; set; }
-        
-        public int WorkerId { get; set; }
-        
-        [StringLength(100)]
-        public string? TargetAudience { get; set; }
-        
-        [StringLength(50)]
-        public string Status { get; set; } = "Active";
-        
-        // 導航屬性
-        public virtual Worker? Worker { get; set; }
-        public virtual ICollection<CaseActivityRegistration>? CaseActivityRegistrations { get; set; }
-        public virtual ICollection<UserActivityRegistration>? UserActivityRegistrations { get; set; }
-    }
-} 
+    public int ActivityId { get; set; }
+
+    public string? ActivityName { get; set; }
+
+    public string? Description { get; set; }
+
+    public string? ImageUrl { get; set; }
+
+    public string? Location { get; set; }
+
+    public int? MaxParticipants { get; set; }
+
+    public int? CurrentParticipants { get; set; }
+
+    public DateOnly? StartDate { get; set; }
+
+    public DateOnly? EndDate { get; set; }
+
+    public DateOnly? SignupDeadline { get; set; }
+
+    public int? WorkerId { get; set; }
+
+    public string? TargetAudience { get; set; }
+
+    public string? Status { get; set; }
+
+    public string? Category { get; set; }
+
+    public virtual ICollection<CaseActivityRegistration> CaseActivityRegistrations { get; set; } = new List<CaseActivityRegistration>();
+
+    public virtual ICollection<UserActivityRegistration> UserActivityRegistrations { get; set; } = new List<UserActivityRegistration>();
+
+    public virtual Worker? Worker { get; set; }
+}

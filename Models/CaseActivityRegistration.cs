@@ -1,21 +1,19 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace NGO_WebAPI_Backend.Models
+namespace NGO_WebAPI_Backend.Models;
+
+public partial class CaseActivityRegistration
 {
-    public class CaseActivityRegistration
-    {
-        [Key]
-        public int Id { get; set; }
-        public int CaseId { get; set; }
-        public int ActivityId { get; set; }
-        public string Status { get; set; } = "Pending";
+    public int RegistrationId { get; set; }
 
-        // 導航屬性
-        [ForeignKey("CaseId")]
-        public virtual Case? Case { get; set; }
-        
-        [ForeignKey("ActivityId")]
-        public virtual Activity? Activity { get; set; }
-    }
-} 
+    public int? CaseId { get; set; }
+
+    public int? ActivityId { get; set; }
+
+    public string? Status { get; set; }
+
+    public virtual Activity? Activity { get; set; }
+
+    public virtual Case? Case { get; set; }
+}
