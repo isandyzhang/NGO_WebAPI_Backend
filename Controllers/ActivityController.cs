@@ -327,45 +327,7 @@ namespace NGO_WebAPI_Backend.Controllers
             }
         }
 
-        /// <summary>
-        /// 測試連接
-        /// </summary>
-        [HttpGet("test")]
-        public async Task<ActionResult> TestConnection()
-        {
-            try
-            {
-                _logger.LogInformation("開始測試活動資料庫連接");
 
-                var canConnect = await _context.Database.CanConnectAsync();
-                if (!canConnect)
-                {
-                    return BadRequest(new { 
-                        message = "無法連接到資料庫", 
-                        server = "ngosqlserver.database.windows.net",
-                        database = "NGOPlatformDB",
-                        status = "連接失敗" 
-                    });
-                }
-
-                return Ok(new { 
-                    message = "活動資料庫連接成功！", 
-                    server = "ngosqlserver.database.windows.net",
-                    database = "NGOPlatformDB",
-                    status = "已連接" 
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { 
-                    message = "活動資料庫連接錯誤", 
-                    error = ex.Message,
-                    server = "ngosqlserver.database.windows.net",
-                    database = "NGOPlatformDB",
-                    status = "錯誤" 
-                });
-            }
-        }
     }
 
     public class CreateActivityRequest

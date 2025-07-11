@@ -27,18 +27,18 @@ namespace NGO_WebAPI_Backend.Controllers
                 _logger.LogInformation("開始查詢個案報名資料");
 
                 var registrations = await _context.CaseActivityRegistrations
-                    .Include(r => r.Case)
-                    .Include(r => r.Activity)
-                    .Select(r => new
+                    .Join(_context.Cases, cr => cr.CaseId, c => c.CaseId, (cr, c) => new { cr, c })
+                    .Join(_context.Activities, temp => temp.cr.ActivityId, a => a.ActivityId, (temp, a) => new
                     {
-                        Id = r.RegistrationId,
-                        CaseName = r.Case != null ? r.Case.Name : "未知個案",
-                        ActivityName = r.Activity != null ? r.Activity.ActivityName : "未知活動",
-                        Status = r.Status
+                        Id = temp.cr.RegistrationId,
+                        CaseName = temp.c.Name ?? "未知個案",
+                        ActivityName = a.ActivityName ?? "未知活動",
+                        Status = temp.cr.Status ?? "Pending"
                     })
                     .ToListAsync();
 
                 _logger.LogInformation($"成功查詢到 {registrations.Count} 筆個案報名資料");
+                
                 return Ok(registrations);
             }
             catch (Exception ex)
@@ -56,21 +56,22 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogInformation("開始查詢民眾報名資料");
 
-                // 直接查詢 UserActivityRegistrations 表，不關聯其他表
                 var registrations = await _context.UserActivityRegistrations
-                    .Select(r => new
+                    .Join(_context.Users, ur => ur.UserId, u => u.UserId, (ur, u) => new { ur, u })
+                    .Join(_context.Activities, temp => temp.ur.ActivityId, a => a.ActivityId, (temp, a) => new
                     {
-                        Id = r.RegistrationId,
-                        UserId = r.UserId,
-                        UserName = $"用戶{r.UserId}", // 暫時使用 UserId 作為顯示名稱
-                        ActivityId = r.ActivityId,
-                        ActivityName = $"活動{r.ActivityId}", // 暫時使用 ActivityId 作為顯示名稱
-                        NumberOfCompanions = r.NumberOfCompanions ?? 0,
-                        Status = r.Status
+                        Id = temp.ur.RegistrationId,
+                        UserId = temp.ur.UserId,
+                        UserName = temp.u.Name ?? $"用戶{temp.ur.UserId}",
+                        ActivityId = temp.ur.ActivityId,
+                        ActivityName = a.ActivityName ?? $"活動{temp.ur.ActivityId}",
+                        NumberOfCompanions = temp.ur.NumberOfCompanions ?? 0,
+                        Status = temp.ur.Status ?? "Pending"
                     })
                     .ToListAsync();
 
                 _logger.LogInformation($"成功查詢到 {registrations.Count} 筆民眾報名資料");
+                
                 return Ok(registrations);
             }
             catch (Exception ex)
@@ -102,14 +103,27 @@ namespace NGO_WebAPI_Backend.Controllers
                     return NotFound(new { message = "找不到相關的活動" });
                 }
 
-                // 更新參與人數
-                if (reg.Status == "Approved" && req.Status == "Cancelled")
-                    activity.CurrentParticipants = Math.Max(0, (activity.CurrentParticipants ?? 0) - 1);
-                if (reg.Status != "Approved" && req.Status == "Approved")
-                    activity.CurrentParticipants = (activity.CurrentParticipants ?? 0) + 1;
+                string oldStatus = reg.Status;
 
+                // 步驟1：更新報名狀態
                 reg.Status = req.Status;
                 await _context.SaveChangesAsync();
+
+                // 步驟2：分別更新活動參與人數，避免觸發器衝突
+                if (oldStatus == "Approved" && req.Status == "Cancelled")
+                {
+                    // 從批准改為取消，減少參與人數
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "UPDATE Activities SET CurrentParticipants = CASE WHEN CurrentParticipants >= 1 THEN CurrentParticipants - 1 ELSE 0 END WHERE ActivityId = {0}",
+                        reg.ActivityId);
+                }
+                else if (oldStatus != "Approved" && req.Status == "Approved")
+                {
+                    // 從未批准改為批准，增加參與人數
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "UPDATE Activities SET CurrentParticipants = ISNULL(CurrentParticipants, 0) + 1 WHERE ActivityId = {0}",
+                        reg.ActivityId);
+                }
 
                 _logger.LogInformation($"成功更新個案報名狀態，ID: {id}");
                 return Ok(new { message = "狀態更新成功" });
@@ -144,15 +158,27 @@ namespace NGO_WebAPI_Backend.Controllers
                 }
 
                 int delta = 1 + (reg.NumberOfCompanions ?? 0);
+                string oldStatus = reg.Status;
 
-                // 更新參與人數
-                if (reg.Status == "Approved" && req.Status == "Cancelled")
-                    activity.CurrentParticipants = Math.Max(0, (activity.CurrentParticipants ?? 0) - delta);
-                if (reg.Status != "Approved" && req.Status == "Approved")
-                    activity.CurrentParticipants = (activity.CurrentParticipants ?? 0) + delta;
-
+                // 步驟1：更新報名狀態
                 reg.Status = req.Status;
                 await _context.SaveChangesAsync();
+
+                // 步驟2：分別更新活動參與人數，避免觸發器衝突
+                if (oldStatus == "Approved" && req.Status == "Cancelled")
+                {
+                    // 從批准改為取消，減少參與人數
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "UPDATE Activities SET CurrentParticipants = CASE WHEN CurrentParticipants >= {0} THEN CurrentParticipants - {0} ELSE 0 END WHERE ActivityId = {1}",
+                        delta, reg.ActivityId);
+                }
+                else if (oldStatus != "Approved" && req.Status == "Approved")
+                {
+                    // 從未批准改為批准，增加參與人數
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "UPDATE Activities SET CurrentParticipants = ISNULL(CurrentParticipants, 0) + {0} WHERE ActivityId = {1}",
+                        delta, reg.ActivityId);
+                }
 
                 _logger.LogInformation($"成功更新民眾報名狀態，ID: {id}");
                 return Ok(new { message = "狀態更新成功" });
@@ -163,6 +189,8 @@ namespace NGO_WebAPI_Backend.Controllers
                 return StatusCode(500, new { message = "更新狀態失敗", error = ex.Message });
             }
         }
+
+
     }
 
     public class UpdateStatusRequest
