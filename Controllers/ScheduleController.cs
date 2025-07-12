@@ -40,6 +40,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 .OrderByDescending(s => s.StartTime)
                 .Select(s => new
                 {
+                    s.ScheduleId,
                     s.WorkerId,
                     s.EventType,
                     s.EventName,
@@ -219,6 +220,9 @@ namespace NGO_WebAPI_Backend.Controllers
             public string? Description { get; set; }          // 備註說明
             public DateTime? StartTime { get; set; }           // 開始時間
             public DateTime? EndTime { get; set; }
+            public string? Priority { get; set; }
+            public string? Status { get; set; }
+            public int? CaseId { get; set; }
         }
     }
 }
