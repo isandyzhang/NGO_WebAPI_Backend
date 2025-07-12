@@ -66,11 +66,26 @@ namespace NGO_WebAPI_Backend.Controllers
         /// <param name="schedule">活動資料</param>
         /// <returns>建立後的活動資訊</returns>
         [HttpPost]
-        public async Task<ActionResult<Schedule>> CreateSchedule(Schedule schedule)
+        public async Task<ActionResult<Schedule>> CreateSchedule([FromBody] ScheduleDto dto)
         {
+            var schedule = new Schedule
+            {
+                WorkerId = dto.WorkerId ?? 0,
+                CaseId = dto.CaseId,
+                Description = dto.Description,
+                EventName = dto.EventName,
+                EventType = dto.EventType,
+                StartTime = dto.StartTime,
+                EndTime = dto.EndTime,
+                Priority = dto.Priority,
+                Status = dto.Status
+            };
+
             _context.Schedules.Add(schedule);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetSchedulesByWorkerId), new { workerId = schedule.WorkerId }, schedule);
+
+            // 回傳成功新增的資料
+            return Ok(schedule); // ✅ 最穩
         }
 
         /// <summary>
