@@ -12,7 +12,7 @@ namespace NGO_WebAPI_Backend.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly MyDbContext _context;
+        private readonly NgoplatformDbContext _context;
         private readonly ILogger<AuthController> _logger;
 
         /// <summary>
@@ -20,7 +20,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// </summary>
         /// <param name="context">資料庫上下文</param>
         /// <param name="logger">記錄器</param>
-        public AuthController(MyDbContext context, ILogger<AuthController> logger)
+        public AuthController(NgoplatformDbContext context, ILogger<AuthController> logger)
         {
             _context = context;
             _logger = logger;

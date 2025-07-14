@@ -15,7 +15,7 @@ builder.Services.AddControllers()
     });
 
 // 配置Entity Framework和数据库连接
-builder.Services.AddDbContext<MyDbContext>(options =>
+builder.Services.AddDbContext<NgoplatformDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // 添加CORS支持（为了前端能访问API）

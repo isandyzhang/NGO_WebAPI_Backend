@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace NGO_WebAPI_Backend.Models;
 
-public partial class MyDbContext : DbContext
+public partial class NgoplatformDbContext : DbContext
 {
-    public MyDbContext()
+    public NgoplatformDbContext()
     {
     }
 
-    public MyDbContext(DbContextOptions<MyDbContext> options)
+    public NgoplatformDbContext(DbContextOptions<NgoplatformDbContext> options)
         : base(options)
     {
     }
@@ -31,6 +31,8 @@ public partial class MyDbContext : DbContext
 
     public virtual DbSet<News> News { get; set; }
 
+    public virtual DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+
     public virtual DbSet<RegularSuppliesNeed> RegularSuppliesNeeds { get; set; }
 
     public virtual DbSet<RegularSupplyMatch> RegularSupplyMatches { get; set; }
@@ -49,17 +51,15 @@ public partial class MyDbContext : DbContext
 
     public virtual DbSet<UserOrderDetail> UserOrderDetails { get; set; }
 
+    public virtual DbSet<VwActivitiesFrontend> VwActivitiesFrontends { get; set; }
+
+    public virtual DbSet<VwActivitiesStatus> VwActivitiesStatuses { get; set; }
+
     public virtual DbSet<Worker> Workers { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        // 如果已經配置了選項，就不需要再配置
-        if (!optionsBuilder.IsConfigured)
-        {
-            // 這裡的連接字符串將從 Program.cs 中的配置讀取
-            // 實際的連接字符串在 appsettings.json 中配置
-        }
-    }
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlServer("Server=ngosqlserver.database.windows.net;Database=NGOPlatformDB;User Id=ngoadmin;Password=r18031234!;TrustServerCertificate=True;Encrypt=true;");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +68,8 @@ public partial class MyDbContext : DbContext
         modelBuilder.Entity<Activity>(entity =>
         {
             entity.HasKey(e => e.ActivityId).HasName("PK__Activiti__45F4A7914643EE44");
+
+            entity.ToTable(tb => tb.HasTrigger("tr_CheckFullOnRegistration"));
 
             entity.Property(e => e.ActivityName)
                 .HasMaxLength(100)
@@ -99,7 +101,7 @@ public partial class MyDbContext : DbContext
 
             entity.HasIndex(e => e.IdentityNumber, "UQ__Cases__6354A73F80F4F619").IsUnique();
 
-            entity.Property(e => e.Address).HasColumnType("text");
+
             entity.Property(e => e.City).HasMaxLength(50);
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("(getdate())")
@@ -229,6 +231,14 @@ public partial class MyDbContext : DbContext
                 .IsUnicode(false);
         });
 
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.Email).HasMaxLength(255);
+            entity.Property(e => e.Token).HasMaxLength(255);
+            entity.Property(e => e.UserType).HasMaxLength(10);
+        });
+
         modelBuilder.Entity<RegularSuppliesNeed>(entity =>
         {
             entity.HasKey(e => e.RegularNeedId).HasName("PK__RegularS__12A5D64A7B60206E");
@@ -270,6 +280,14 @@ public partial class MyDbContext : DbContext
 
             entity.Property(e => e.Description).HasColumnType("text");
             entity.Property(e => e.EndTime).HasColumnType("datetime");
+            entity.Property(e => e.EventName)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasDefaultValue("行程");
+            entity.Property(e => e.EventType)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("個案訪問");
             entity.Property(e => e.Priority)
                 .HasMaxLength(50)
                 .IsUnicode(false);
@@ -363,7 +381,10 @@ public partial class MyDbContext : DbContext
         {
             entity.HasKey(e => e.UserOrderId).HasName("PK__UserOrde__35D02767D337C2D3");
 
+            entity.HasIndex(e => e.OrderNumber, "UK_UserOrders_OrderNumber").IsUnique();
+
             entity.Property(e => e.OrderDate).HasColumnType("datetime");
+            entity.Property(e => e.OrderNumber).HasMaxLength(20);
             entity.Property(e => e.PaymentStatus)
                 .HasMaxLength(50)
                 .IsUnicode(false);
@@ -387,6 +408,58 @@ public partial class MyDbContext : DbContext
             entity.HasOne(d => d.UserOrder).WithMany(p => p.UserOrderDetails)
                 .HasForeignKey(d => d.UserOrderId)
                 .HasConstraintName("FK__UserOrder__UserO__17F790F9");
+        });
+
+        modelBuilder.Entity<VwActivitiesFrontend>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("vw_Activities_Frontend");
+
+            entity.Property(e => e.ActivityId).ValueGeneratedOnAdd();
+            entity.Property(e => e.ActivityName)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.DisplayStatus)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.Location)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<VwActivitiesStatus>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("vw_Activities_Status");
+
+            entity.Property(e => e.ActivityId).ValueGeneratedOnAdd();
+            entity.Property(e => e.ActivityName)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.Category).HasMaxLength(10);
+            entity.Property(e => e.Location)
+                .HasMaxLength(100)
+                .IsUnicode(false);
+            entity.Property(e => e.TargetAudience)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.TimeBasedStatus)
+                .HasMaxLength(8)
+                .IsUnicode(false);
+            entity.Property(e => e.中文狀態)
+                .HasMaxLength(10)
+                .IsUnicode(false);
+            entity.Property(e => e.原始狀態)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.狀態檢查)
+                .HasMaxLength(14)
+                .IsUnicode(false);
+            entity.Property(e => e.系統建議狀態)
+                .HasMaxLength(9)
+                .IsUnicode(false);
         });
 
         modelBuilder.Entity<Worker>(entity =>

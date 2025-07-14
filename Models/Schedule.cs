@@ -7,9 +7,6 @@ public partial class Schedule
 {
     public int ScheduleId { get; set; }
 
-    public string? EventType { get; set; }
-    public string? EventName { get; set; }
-
     public int? WorkerId { get; set; }
 
     public int? CaseId { get; set; }
@@ -23,6 +20,10 @@ public partial class Schedule
     public string? Priority { get; set; }
 
     public string? Status { get; set; }
+
+    public string EventType { get; set; } = null!;
+
+    public string EventName { get; set; } = null!;
 
     public virtual Case? Case { get; set; }
 
