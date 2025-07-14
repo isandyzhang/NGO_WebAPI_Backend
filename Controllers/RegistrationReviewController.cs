@@ -9,10 +9,10 @@ namespace NGO_WebAPI_Backend.Controllers
     [Route("api/[controller]")]
     public class RegistrationReviewController : ControllerBase
     {
-        private readonly MyDbContext _context;
+        private readonly NgoplatformDbContext _context;
         private readonly ILogger<RegistrationReviewController> _logger;
 
-        public RegistrationReviewController(MyDbContext context, ILogger<RegistrationReviewController> logger)
+        public RegistrationReviewController(NgoplatformDbContext context, ILogger<RegistrationReviewController> logger)
         {
             _context = context;
             _logger = logger;
@@ -33,7 +33,7 @@ namespace NGO_WebAPI_Backend.Controllers
                         Id = temp.cr.RegistrationId,
                         CaseName = temp.c.Name ?? "未知個案",
                         ActivityName = a.ActivityName ?? "未知活動",
-                        Status = temp.cr.Status ?? "Pending"
+                        Status = temp.cr.Status ?? "registered"
                     })
                     .ToListAsync();
 
@@ -66,7 +66,7 @@ namespace NGO_WebAPI_Backend.Controllers
                         ActivityId = temp.ur.ActivityId,
                         ActivityName = a.ActivityName ?? $"活動{temp.ur.ActivityId}",
                         NumberOfCompanions = temp.ur.NumberOfCompanions ?? 0,
-                        Status = temp.ur.Status ?? "Pending"
+                        Status = temp.ur.Status ?? "registered"
                     })
                     .ToListAsync();
 
@@ -110,7 +110,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 await _context.SaveChangesAsync();
 
                 // 步驟2：分別更新活動參與人數，避免觸發器衝突
-                if (oldStatus == "Approved" && req.Status == "Cancelled")
+                if (oldStatus == "Approved" && req.Status == "cancelled")
                 {
                     // 從批准改為取消，減少參與人數
                     await _context.Database.ExecuteSqlRawAsync(
@@ -165,7 +165,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 await _context.SaveChangesAsync();
 
                 // 步驟2：分別更新活動參與人數，避免觸發器衝突
-                if (oldStatus == "Approved" && req.Status == "Cancelled")
+                if (oldStatus == "Approved" && req.Status == "cancelled")
                 {
                     // 從批准改為取消，減少參與人數
                     await _context.Database.ExecuteSqlRawAsync(

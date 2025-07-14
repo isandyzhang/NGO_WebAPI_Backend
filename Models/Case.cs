@@ -15,8 +15,6 @@ public partial class Case
 
     public DateOnly? Birthday { get; set; }
 
-    public string? Address { get; set; }
-
     public int? WorkerId { get; set; }
 
     public string? Description { get; set; }

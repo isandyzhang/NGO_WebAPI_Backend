@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace NGO_WebAPI_Backend.Controllers
 {
@@ -23,7 +24,7 @@ namespace NGO_WebAPI_Backend.Controllers
     public class CaseController : ControllerBase
     {
         // 資料庫上下文 - 用來存取資料庫
-        private readonly MyDbContext _context;
+        private readonly NgoplatformDbContext _context;
         
         // 日誌記錄器 - 用來記錄系統日誌
         private readonly ILogger<CaseController> _logger;
@@ -33,29 +34,113 @@ namespace NGO_WebAPI_Backend.Controllers
         /// </summary>
         /// <param name="context">資料庫上下文</param>
         /// <param name="logger">日誌記錄器</param>
-        public CaseController(MyDbContext context, ILogger<CaseController> logger)
+        public CaseController(NgoplatformDbContext context, ILogger<CaseController> logger)
         {
             _context = context;  // 注入資料庫上下文
             _logger = logger;    // 注入日誌記錄器
         }
 
         /// <summary>
-        /// 獲取所有個案列表
-        /// HTTP GET: /api/case
+        /// 驗證台灣身分證字號格式
         /// </summary>
-        /// <returns>所有個案的列表，按建立時間降序排列</returns>
+        /// <param name="identityNumber">身分證字號</param>
+        /// <returns>驗證結果</returns>
+        private (bool IsValid, string ErrorMessage) ValidateTaiwanIdentityNumber(string identityNumber)
+        {
+            // 檢查是否為空
+            if (string.IsNullOrWhiteSpace(identityNumber))
+            {
+                return (false, "身分證字號不能為空");
+            }
+
+            // 檢查長度
+            if (identityNumber.Length != 10)
+            {
+                return (false, "身分證字號必須為10位數字");
+            }
+
+            // 檢查格式：第一個字母 + 9個數字
+            if (!Regex.IsMatch(identityNumber, @"^[A-Z][0-9]{9}$"))
+            {
+                return (false, "身分證字號格式錯誤：應為1個英文字母後接9個數字");
+            }
+
+            // 台灣身分證字號驗證規則
+            // 英文字母對應的數字
+            var letterValues = new Dictionary<char, int>
+            {
+                {'A', 10}, {'B', 11}, {'C', 12}, {'D', 13}, {'E', 14},
+                {'F', 15}, {'G', 16}, {'H', 17}, {'I', 34}, {'J', 18},
+                {'K', 19}, {'L', 20}, {'M', 21}, {'N', 22}, {'O', 35},
+                {'P', 23}, {'Q', 24}, {'R', 25}, {'S', 26}, {'T', 27},
+                {'U', 28}, {'V', 29}, {'W', 32}, {'X', 30}, {'Y', 31}, {'Z', 33}
+            };
+
+            char firstLetter = identityNumber[0];
+            if (!letterValues.ContainsKey(firstLetter))
+            {
+                return (false, "身分證字號第一個字母無效");
+            }
+
+            // 取得字母對應的數字
+            int letterValue = letterValues[firstLetter];
+            
+            // 計算驗證碼
+            int sum = (letterValue / 10) + (letterValue % 10) * 9;
+            
+            // 加上後9位數字的權重
+            for (int i = 1; i < 9; i++)
+            {
+                int digit = int.Parse(identityNumber[i].ToString());
+                sum += digit * (9 - i);
+            }
+            
+            // 加上最後一位數字
+            int lastDigit = int.Parse(identityNumber[9].ToString());
+            sum += lastDigit;
+
+            // 檢查是否能被10整除
+            if (sum % 10 != 0)
+            {
+                return (false, "身分證字號驗證碼錯誤");
+            }
+
+            return (true, string.Empty);
+        }
+
+        /// <summary>
+        /// 獲取所有個案列表（支援分頁）
+        /// HTTP GET: /api/case?page=1&pageSize=10
+        /// </summary>
+        /// <param name="page">頁碼（預設 1）</param>
+        /// <param name="pageSize">每頁數量（預設 10）</param>
+        /// <returns>分頁後的個案列表</returns>
         [HttpGet]  // 處理 GET 請求
-        public async Task<ActionResult<IEnumerable<CaseResponse>>> GetAllCases()
+        public async Task<ActionResult<PagedResponse<CaseResponse>>> GetAllCases(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
             try
             {
-                _logger.LogInformation("開始獲取所有個案");
+                _logger.LogInformation($"開始獲取個案列表，頁碼: {page}, 每頁數量: {pageSize}");
 
-                // 查詢資料庫，包含關聯的 Worker 資料，按建立時間降序排列
-                var casesData = await _context.Cases
+                // 驗證分頁參數
+                if (page < 1) page = 1;
+                if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+                // 建立查詢基礎
+                var queryable = _context.Cases
                     .Include(c => c.Worker)  // 包含負責工作人員資料
-                    .OrderByDescending(c => c.CreatedAt)  // 按建立時間降序排列
-                    .ToListAsync();  // 非同步執行查詢
+                    .OrderByDescending(c => c.CreatedAt);  // 按建立時間降序排列
+
+                // 計算總數量
+                var totalCount = await queryable.CountAsync();
+
+                // 執行分頁查詢
+                var casesData = await queryable
+                    .Skip((page - 1) * pageSize)  // 跳過前面的頁面
+                    .Take(pageSize)  // 只取當前頁面的資料
+                    .ToListAsync();
 
                 // 轉換為回應格式
                 var cases = casesData.Select(c => new CaseResponse
@@ -65,7 +150,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     Phone = c.Phone ?? string.Empty,
                     IdentityNumber = c.IdentityNumber ?? string.Empty,
                     Birthday = c.Birthday?.ToDateTime(TimeOnly.MinValue),
-                    Address = c.Address ?? string.Empty,
+                    Address = $"{c.City ?? ""}{c.District ?? ""}{c.DetailAddress ?? ""}",
                     WorkerId = c.WorkerId ?? 0,
                     Description = c.Description,
                     CreatedAt = c.CreatedAt ?? DateTime.Now,
@@ -79,8 +164,24 @@ namespace NGO_WebAPI_Backend.Controllers
                     WorkerName = c.Worker?.Name  // 安全存取工作人員姓名
                 }).ToList();
 
-                _logger.LogInformation($"成功獲取 {cases.Count} 個個案");
-                return Ok(cases);  // 回傳 200 OK 狀態碼
+                // 計算分頁資訊
+                var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+                var hasNextPage = page < totalPages;
+                var hasPreviousPage = page > 1;
+
+                var response = new PagedResponse<CaseResponse>
+                {
+                    Data = cases,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    HasNextPage = hasNextPage,
+                    HasPreviousPage = hasPreviousPage
+                };
+
+                _logger.LogInformation($"成功獲取個案列表，共 {totalCount} 筆，當前頁面 {page}/{totalPages}");
+                return Ok(response);  // 回傳 200 OK 狀態碼
             }
             catch (Exception ex)
             {
@@ -122,7 +223,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     Phone = caseItem.Phone ?? string.Empty,
                     IdentityNumber = caseItem.IdentityNumber ?? string.Empty,
                     Birthday = caseItem.Birthday?.ToDateTime(TimeOnly.MinValue),
-                    Address = caseItem.Address ?? string.Empty,
+                    Address = $"{caseItem.City ?? ""}{caseItem.District ?? ""}{caseItem.DetailAddress ?? ""}",
                     WorkerId = caseItem.WorkerId ?? 0,
                     Description = caseItem.Description,
                     CreatedAt = caseItem.CreatedAt ?? DateTime.Now,
@@ -155,7 +256,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// <param name="pageSize">每頁數量（預設 10）</param>
         /// <returns>搜尋結果和分頁資訊</returns>
         [HttpGet("search")]  // 處理 GET 請求：/api/case/search
-        public async Task<ActionResult<IEnumerable<CaseResponse>>> SearchCases(
+        public async Task<ActionResult<PagedResponse<CaseResponse>>> SearchCases(
             [FromQuery] string? query,  // 從 URL 查詢參數取得
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
@@ -163,6 +264,10 @@ namespace NGO_WebAPI_Backend.Controllers
             try
             {
                 _logger.LogInformation($"開始搜尋個案，關鍵字: {query}, 頁碼: {page}, 每頁數量: {pageSize}");
+
+                // 驗證分頁參數
+                if (page < 1) page = 1;
+                if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
                 // 建立查詢基礎
                 var queryable = _context.Cases
@@ -201,7 +306,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     Phone = c.Phone ?? string.Empty,
                     IdentityNumber = c.IdentityNumber ?? string.Empty,
                     Birthday = c.Birthday?.ToDateTime(TimeOnly.MinValue),
-                    Address = c.Address ?? string.Empty,
+                    Address = $"{c.City ?? ""}{c.District ?? ""}{c.DetailAddress ?? ""}",
                     WorkerId = c.WorkerId ?? 0,
                     Description = c.Description,
                     CreatedAt = c.CreatedAt ?? DateTime.Now,
@@ -215,17 +320,24 @@ namespace NGO_WebAPI_Backend.Controllers
                     WorkerName = c.Worker?.Name
                 }).ToList();
 
-                _logger.LogInformation($"搜尋完成，找到 {cases.Count} 個個案，總計 {totalCount} 個");
+                // 計算分頁資訊
+                var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+                var hasNextPage = page < totalPages;
+                var hasPreviousPage = page > 1;
 
-                // 回傳包含分頁資訊的結果
-                return Ok(new
+                var response = new PagedResponse<CaseResponse>
                 {
-                    data = cases,  // 個案資料
-                    total = totalCount,  // 總數量
-                    page = page,  // 當前頁碼
-                    pageSize = pageSize,  // 每頁數量
-                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize)  // 總頁數
-                });
+                    Data = cases,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    HasNextPage = hasNextPage,
+                    HasPreviousPage = hasPreviousPage
+                };
+
+                _logger.LogInformation($"搜尋完成，找到 {totalCount} 個個案，當前頁面 {page}/{totalPages}");
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -257,6 +369,14 @@ namespace NGO_WebAPI_Backend.Controllers
                     return BadRequest(new { message = "此身分證字號已存在" });  // 回傳 400 錯誤
                 }
 
+                // 驗證身分證字號格式
+                var validationResult = ValidateTaiwanIdentityNumber(request.IdentityNumber);
+                if (!validationResult.IsValid)
+                {
+                    _logger.LogWarning($"身分證字號 {request.IdentityNumber} 格式錯誤: {validationResult.ErrorMessage}");
+                    return BadRequest(new { message = validationResult.ErrorMessage });
+                }
+
                 // 建立新的個案實體
                 var newCase = new Case
                 {
@@ -264,11 +384,10 @@ namespace NGO_WebAPI_Backend.Controllers
                     Phone = request.Phone,
                     IdentityNumber = request.IdentityNumber,
                     Birthday = request.Birthday.HasValue ? DateOnly.FromDateTime(request.Birthday.Value) : null,
-                    Address = request.Address,
                     WorkerId = 1,  // 預設分配給第一個工作人員
                     Description = request.Description,
                     CreatedAt = DateTime.Now,  // 設定建立時間為當前時間
-                    Status = "Active",  // 新個案預設為啟用狀態
+                    Status = "active",  // 新個案預設為啟用狀態
                     Email = request.Email,
                     Gender = request.Gender,
                     ProfileImage = request.ProfileImage,
@@ -294,7 +413,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     Phone = createdCase.Phone ?? string.Empty,
                     IdentityNumber = createdCase.IdentityNumber ?? string.Empty,
                     Birthday = createdCase.Birthday?.ToDateTime(TimeOnly.MinValue),
-                    Address = createdCase.Address ?? string.Empty,
+                    Address = $"{createdCase.City ?? ""}{createdCase.District ?? ""}{createdCase.DetailAddress ?? ""}",
                     WorkerId = createdCase.WorkerId ?? 0,
                     Description = createdCase.Description,
                     CreatedAt = createdCase.CreatedAt ?? DateTime.Now,
@@ -345,9 +464,19 @@ namespace NGO_WebAPI_Backend.Controllers
                 // 只更新有提供的欄位（部分更新）
                 if (request.Name != null) caseItem.Name = request.Name;
                 if (request.Phone != null) caseItem.Phone = request.Phone;
-                if (request.IdentityNumber != null) caseItem.IdentityNumber = request.IdentityNumber;
+                if (request.IdentityNumber != null) 
+                {
+                    // 驗證身分證字號格式
+                    var validationResult = ValidateTaiwanIdentityNumber(request.IdentityNumber);
+                    if (!validationResult.IsValid)
+                    {
+                        _logger.LogWarning($"身分證字號 {request.IdentityNumber} 格式錯誤: {validationResult.ErrorMessage}");
+                        return BadRequest(new { message = validationResult.ErrorMessage });
+                    }
+                    caseItem.IdentityNumber = request.IdentityNumber;
+                }
                 if (request.Birthday.HasValue) caseItem.Birthday = DateOnly.FromDateTime(request.Birthday.Value);
-                if (request.Address != null) caseItem.Address = request.Address;
+                // Address 欄位已被移除，現在由 City + District + DetailAddress 組成
                 if (request.Description != null) caseItem.Description = request.Description;
                 if (request.Status != null) caseItem.Status = request.Status;
                 if (request.Email != null) caseItem.Email = request.Email;
@@ -420,7 +549,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public string Phone { get; set; } = string.Empty;          // 聯絡電話（必填）
         public string IdentityNumber { get; set; } = string.Empty; // 身分證字號（必填）
         public DateTime? Birthday { get; set; }                    // 生日（可選）
-        public string Address { get; set; } = string.Empty;        // 地址（必填）
+        // Address 欄位已移除，現在由 City + District + DetailAddress 組成
         public string? Description { get; set; }                   // 描述（可選）
         public string? Email { get; set; }                         // 電子郵件（可選）
         public string? Gender { get; set; }                        // 性別（可選）
@@ -440,7 +569,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public string? Phone { get; set; }                         // 聯絡電話
         public string? IdentityNumber { get; set; }                // 身分證字號
         public DateTime? Birthday { get; set; }                    // 生日
-        public string? Address { get; set; }                       // 地址
+        // Address 欄位已移除，現在由 City + District + DetailAddress 組成
         public string? Description { get; set; }                   // 描述
         public string? Status { get; set; }                        // 狀態
         public string? Email { get; set; }                         // 電子郵件
@@ -474,5 +603,20 @@ namespace NGO_WebAPI_Backend.Controllers
         public string? District { get; set; }                      // 區域
         public string? DetailAddress { get; set; }                 // 詳細地址
         public string? WorkerName { get; set; }                    // 工作人員姓名（關聯查詢）
+    }
+
+    /// <summary>
+    /// 分頁回應模型
+    /// </summary>
+    /// <typeparam name="T">資料類型</typeparam>
+    public class PagedResponse<T>
+    {
+        public List<T> Data { get; set; } = new List<T>();         // 分頁資料
+        public int Page { get; set; }                              // 當前頁碼
+        public int PageSize { get; set; }                          // 每頁數量
+        public int TotalCount { get; set; }                        // 總數量
+        public int TotalPages { get; set; }                        // 總頁數
+        public bool HasNextPage { get; set; }                      // 是否有下一頁
+        public bool HasPreviousPage { get; set; }                  // 是否有上一頁
     }
 } 

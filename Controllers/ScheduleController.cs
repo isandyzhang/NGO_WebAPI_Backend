@@ -18,10 +18,10 @@ namespace NGO_WebAPI_Backend.Controllers
     [Route("api/[controller]")]
     public class ScheduleController : ControllerBase
     {
-        private readonly MyDbContext _context;
+        private readonly NgoplatformDbContext _context;
         private readonly ILogger<ScheduleController> _logger;
 
-        public ScheduleController(MyDbContext context, ILogger<ScheduleController> logger)
+        public ScheduleController(NgoplatformDbContext context, ILogger<ScheduleController> logger)
         {
             _context = context;
             _logger = logger;
