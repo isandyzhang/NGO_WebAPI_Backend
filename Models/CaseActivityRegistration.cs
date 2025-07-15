@@ -13,6 +13,8 @@ public partial class CaseActivityRegistration
 
     public string? Status { get; set; }
 
+    public DateTime? RegisterTime { get; set; }
+
     public virtual Activity? Activity { get; set; }
 
     public virtual Case? Case { get; set; }

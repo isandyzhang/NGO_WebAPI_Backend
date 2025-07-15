@@ -33,6 +33,8 @@ public partial class NgoplatformDbContext : DbContext
 
     public virtual DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
+    public virtual DbSet<RegularDistributionBatch> RegularDistributionBatches { get; set; }
+
     public virtual DbSet<RegularSuppliesNeed> RegularSuppliesNeeds { get; set; }
 
     public virtual DbSet<RegularSupplyMatch> RegularSupplyMatches { get; set; }
@@ -76,12 +78,14 @@ public partial class NgoplatformDbContext : DbContext
                 .IsUnicode(false);
             entity.Property(e => e.Category).HasMaxLength(10);
             entity.Property(e => e.Description).HasColumnType("text");
+            entity.Property(e => e.EndDate).HasColumnType("datetime");
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(255)
                 .IsUnicode(false);
             entity.Property(e => e.Location)
                 .HasMaxLength(100)
                 .IsUnicode(false);
+            entity.Property(e => e.StartDate).HasColumnType("datetime");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .IsUnicode(false)
@@ -100,7 +104,6 @@ public partial class NgoplatformDbContext : DbContext
             entity.HasKey(e => e.CaseId).HasName("PK__Cases__6CAE524C4841F794");
 
             entity.HasIndex(e => e.IdentityNumber, "UQ__Cases__6354A73F80F4F619").IsUnique();
-
 
             entity.Property(e => e.City).HasMaxLength(50);
             entity.Property(e => e.CreatedAt)
@@ -133,6 +136,7 @@ public partial class NgoplatformDbContext : DbContext
         {
             entity.HasKey(e => e.RegistrationId).HasName("PK__CaseActi__6EF58810AFB8FC95");
 
+            entity.Property(e => e.RegisterTime).HasColumnType("datetime");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .IsUnicode(false);
@@ -237,6 +241,29 @@ public partial class NgoplatformDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.Token).HasMaxLength(255);
             entity.Property(e => e.UserType).HasMaxLength(10);
+        });
+
+        modelBuilder.Entity<RegularDistributionBatch>(entity =>
+        {
+            entity.HasKey(e => e.DistributionBatchId).HasName("PK__RegularD__548A1428EA2B5191");
+
+            entity.ToTable("RegularDistributionBatch");
+
+            entity.Property(e => e.ApprovedAt).HasColumnType("datetime");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.DistributionDate).HasColumnType("datetime");
+            entity.Property(e => e.Status).HasMaxLength(20);
+
+            entity.HasOne(d => d.ApprovedByWorker).WithMany(p => p.RegularDistributionBatchApprovedByWorkers)
+                .HasForeignKey(d => d.ApprovedByWorkerId)
+                .HasConstraintName("FK__RegularDi__Appro__41EDCAC5");
+
+            entity.HasOne(d => d.CreatedByWorker).WithMany(p => p.RegularDistributionBatchCreatedByWorkers)
+                .HasForeignKey(d => d.CreatedByWorkerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__RegularDi__Creat__40F9A68C");
         });
 
         modelBuilder.Entity<RegularSuppliesNeed>(entity =>
@@ -364,6 +391,7 @@ public partial class NgoplatformDbContext : DbContext
         {
             entity.HasKey(e => e.RegistrationId).HasName("PK__UserActi__6EF58810AB33EBAD");
 
+            entity.Property(e => e.RegisterTime).HasColumnType("datetime");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .IsUnicode(false);
