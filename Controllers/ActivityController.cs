@@ -4,6 +4,7 @@ using NGO_WebAPI_Backend.Models;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Data.SqlClient; // Added for SqlException
 
 namespace NGO_WebAPI_Backend.Controllers
 {
@@ -35,9 +36,18 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogInformation("開始獲取所有活動");
 
+                // 檢查數據庫連接
+                if (!await _context.Database.CanConnectAsync())
+                {
+                    _logger.LogError("數據庫連接失敗");
+                    return StatusCode(500, new { message = "數據庫連接失敗", error = "Database connection failed" });
+                }
+
                 var activitiesData = await _context.Activities
                     .Include(a => a.Worker)
                     .ToListAsync();
+
+                _logger.LogInformation($"從數據庫獲取到 {activitiesData.Count} 個活動");
 
                 var activities = activitiesData.Select(a => new ActivityResponse
                 {
@@ -61,10 +71,15 @@ namespace NGO_WebAPI_Backend.Controllers
                 _logger.LogInformation($"成功獲取 {activities.Count} 個活動");
                 return Ok(activities);
             }
+            catch (SqlException sqlEx)
+            {
+                _logger.LogError(sqlEx, "SQL 錯誤: {ErrorMessage}", sqlEx.Message);
+                return StatusCode(500, new { message = "數據庫查詢失敗", error = sqlEx.Message });
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "獲取活動列表時發生錯誤");
-                return StatusCode(500, new { message = "獲取活動列表失敗" });
+                _logger.LogError(ex, "獲取活動列表時發生錯誤: {ErrorMessage}", ex.Message);
+                return StatusCode(500, new { message = "獲取活動列表失敗", error = ex.Message, stackTrace = ex.StackTrace });
             }
         }
 

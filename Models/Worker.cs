@@ -21,6 +21,10 @@ public partial class Worker
 
     public virtual ICollection<EmergencySupplyNeed> EmergencySupplyNeeds { get; set; } = new List<EmergencySupplyNeed>();
 
+    public virtual ICollection<RegularDistributionBatch> RegularDistributionBatchApprovedByWorkers { get; set; } = new List<RegularDistributionBatch>();
+
+    public virtual ICollection<RegularDistributionBatch> RegularDistributionBatchCreatedByWorkers { get; set; } = new List<RegularDistributionBatch>();
+
     public virtual ICollection<RegularSupplyMatch> RegularSupplyMatches { get; set; } = new List<RegularSupplyMatch>();
 
     public virtual ICollection<Schedule> Schedules { get; set; } = new List<Schedule>();

@@ -15,6 +15,8 @@ public partial class UserActivityRegistration
 
     public int? NumberOfCompanions { get; set; }
 
+    public DateTime? RegisterTime { get; set; }
+
     public virtual Activity? Activity { get; set; }
 
     public virtual User? User { get; set; }
