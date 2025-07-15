@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace NGO_WebAPI_Backend.Controllers
 {
@@ -13,11 +16,13 @@ namespace NGO_WebAPI_Backend.Controllers
     {
         private readonly NgoplatformDbContext _context;
         private readonly ILogger<ActivityController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public ActivityController(NgoplatformDbContext context, ILogger<ActivityController> logger)
+        public ActivityController(NgoplatformDbContext context, ILogger<ActivityController> logger, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -324,6 +329,83 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogError(ex, "分頁查詢活動時發生錯誤");
                 return StatusCode(500, new { message = "分頁查詢活動失敗" });
+            }
+        }
+
+        /// <summary>
+        /// 測試圖片上傳端點（不實際上傳）
+        /// </summary>
+        [HttpPost("upload/test")]
+        [AllowAnonymous]
+        public async Task<ActionResult<string>> TestUpload(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "請選擇圖片檔案" });
+                }
+
+                _logger.LogInformation($"收到測試上傳請求，檔案: {file.FileName}, 大小: {file.Length} bytes");
+
+                return Ok(new { 
+                    message = "測試上傳成功！",
+                    fileName = file.FileName,
+                    fileSize = file.Length,
+                    contentType = file.ContentType,
+                    imageUrl = "https://example.com/test-image.jpg"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "測試上傳失敗");
+                return StatusCode(500, new { message = "測試上傳失敗", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// 上傳圖片到 Azure Blob Storage
+        /// </summary>
+        [HttpPost("upload/image")]
+        [AllowAnonymous]
+        public async Task<ActionResult<string>> UploadImage(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "請選擇圖片檔案" });
+                }
+
+                // 驗證檔案類型
+                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif" };
+                if (!allowedTypes.Contains(file.ContentType.ToLower()))
+                {
+                    return BadRequest(new { message = "只支援 JPG、PNG、GIF 格式的圖片" });
+                }
+
+                // 驗證檔案大小 (5MB)
+                if (file.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest(new { message = "圖片檔案大小不能超過 5MB" });
+                }
+
+                // 暫時跳過 Azure，回傳假 URL 供測試
+                var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+                var fakeUrl = $"https://fakeazure.blob.core.windows.net/activity-images/{fileName}";
+                
+                _logger.LogInformation($"圖片上傳模擬成功: {fileName}");
+                
+                // 模擬處理時間
+                await Task.Delay(500);
+
+                // 回傳假的 Azure URL
+                return Ok(new { imageUrl = fakeUrl });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "圖片上傳失敗");
+                return StatusCode(500, new { message = "圖片上傳失敗", error = ex.Message });
             }
         }
 
