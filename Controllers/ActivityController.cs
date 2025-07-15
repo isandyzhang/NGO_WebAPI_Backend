@@ -53,6 +53,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     SignupDeadline = a.SignupDeadline,
                     WorkerId = a.WorkerId ?? 0,
                     TargetAudience = a.TargetAudience,
+                    Category = a.Category,
                     Status = a.Status ?? string.Empty,
                     WorkerName = a.Worker?.Name
                 }).ToList();
@@ -101,6 +102,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     SignupDeadline = activity.SignupDeadline,
                     WorkerId = activity.WorkerId ?? 0,
                     TargetAudience = activity.TargetAudience,
+                    Category = activity.Category,
                     Status = activity.Status ?? string.Empty,
                     WorkerName = activity.Worker?.Name
                 };
@@ -125,6 +127,12 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogInformation($"開始建立新活動，名稱: {request.ActivityName}");
 
+                // 驗證分類
+                if (!ActivityCategory.IsValidCategory(request.Category))
+                {
+                    return BadRequest(new { message = "無效的活動分類" });
+                }
+
                 var newActivity = new Activity
                 {
                     ActivityName = request.ActivityName,
@@ -138,7 +146,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     SignupDeadline = request.SignupDeadline,
                     WorkerId = request.WorkerId,
                     TargetAudience = request.TargetAudience,
-                    Status = "Active"
+                    Category = request.Category,
+                    Status = "open"
                 };
 
                 _context.Activities.Add(newActivity);
@@ -162,6 +171,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     SignupDeadline = createdActivity.SignupDeadline,
                     WorkerId = createdActivity.WorkerId ?? 0,
                     TargetAudience = createdActivity.TargetAudience,
+                    Category = createdActivity.Category,
                     Status = createdActivity.Status ?? string.Empty,
                     WorkerName = createdActivity.Worker?.Name
                 };
@@ -203,6 +213,14 @@ namespace NGO_WebAPI_Backend.Controllers
                 if (request.EndDate.HasValue) activity.EndDate = request.EndDate.Value;
                 if (request.SignupDeadline.HasValue) activity.SignupDeadline = request.SignupDeadline.Value;
                 if (request.TargetAudience != null) activity.TargetAudience = request.TargetAudience;
+                if (request.Category != null) 
+                {
+                    if (!ActivityCategory.IsValidCategory(request.Category))
+                    {
+                        return BadRequest(new { message = "無效的活動分類" });
+                    }
+                    activity.Category = request.Category;
+                }
                 if (request.Status != null) activity.Status = request.Status;
 
                 await _context.SaveChangesAsync();
@@ -314,6 +332,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     SignupDeadline = a.SignupDeadline,
                     WorkerId = a.WorkerId ?? 0,
                     TargetAudience = a.TargetAudience,
+                    Category = a.Category,
                     Status = a.Status ?? string.Empty,
                     WorkerName = a.Worker?.Name
                 }).ToList();
@@ -410,6 +429,26 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
+        /// 取得所有活動分類選項
+        /// </summary>
+        [HttpGet("categories")]
+        [AllowAnonymous]
+        public ActionResult<List<CategoryOption>> GetCategories()
+        {
+            try
+            {
+                _logger.LogInformation("取得活動分類選項");
+                var categories = ActivityCategory.GetAllCategories();
+                return Ok(categories);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "取得活動分類選項失敗");
+                return StatusCode(500, new { message = "取得分類選項失敗" });
+            }
+        }
+
+        /// <summary>
         /// 測試連接
         /// </summary>
         [HttpGet("test")]
@@ -462,6 +501,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public DateTime? SignupDeadline { get; set; }
         public int WorkerId { get; set; }
         public string? TargetAudience { get; set; }
+        public string? Category { get; set; }
     }
 
     public class UpdateActivityRequest
@@ -476,6 +516,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public DateTime? EndDate { get; set; }
         public DateTime? SignupDeadline { get; set; }
         public string? TargetAudience { get; set; }
+        public string? Category { get; set; }
         public string? Status { get; set; }
     }
 
@@ -493,6 +534,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public DateTime? SignupDeadline { get; set; }
         public int WorkerId { get; set; }
         public string? TargetAudience { get; set; }
+        public string? Category { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? WorkerName { get; set; }
     }
