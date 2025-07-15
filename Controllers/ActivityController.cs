@@ -43,9 +43,9 @@ namespace NGO_WebAPI_Backend.Controllers
                     Location = a.Location ?? string.Empty,
                     MaxParticipants = a.MaxParticipants ?? 0,
                     CurrentParticipants = a.CurrentParticipants ?? 0,
-                    StartDate = a.StartDate?.ToDateTime(TimeOnly.MinValue),
-                    EndDate = a.EndDate?.ToDateTime(TimeOnly.MinValue),
-                    SignupDeadline = a.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
+                    StartDate = a.StartDate,
+                    EndDate = a.EndDate,
+                    SignupDeadline = a.SignupDeadline,
                     WorkerId = a.WorkerId ?? 0,
                     TargetAudience = a.TargetAudience,
                     Status = a.Status ?? string.Empty,
@@ -91,9 +91,9 @@ namespace NGO_WebAPI_Backend.Controllers
                     Location = activity.Location ?? string.Empty,
                     MaxParticipants = activity.MaxParticipants ?? 0,
                     CurrentParticipants = activity.CurrentParticipants ?? 0,
-                    StartDate = activity.StartDate?.ToDateTime(TimeOnly.MinValue),
-                    EndDate = activity.EndDate?.ToDateTime(TimeOnly.MinValue),
-                    SignupDeadline = activity.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
+                    StartDate = activity.StartDate,
+                    EndDate = activity.EndDate,
+                    SignupDeadline = activity.SignupDeadline,
                     WorkerId = activity.WorkerId ?? 0,
                     TargetAudience = activity.TargetAudience,
                     Status = activity.Status ?? string.Empty,
@@ -128,9 +128,9 @@ namespace NGO_WebAPI_Backend.Controllers
                     Location = request.Location,
                     MaxParticipants = request.MaxParticipants,
                     CurrentParticipants = 0,
-                    StartDate = request.StartDate.HasValue ? DateOnly.FromDateTime(request.StartDate.Value) : null,
-                    EndDate = request.EndDate.HasValue ? DateOnly.FromDateTime(request.EndDate.Value) : null,
-                    SignupDeadline = request.SignupDeadline.HasValue ? DateOnly.FromDateTime(request.SignupDeadline.Value) : null,
+                    StartDate = request.StartDate,
+                    EndDate = request.EndDate,
+                    SignupDeadline = request.SignupDeadline,
                     WorkerId = request.WorkerId,
                     TargetAudience = request.TargetAudience,
                     Status = "Active"
@@ -152,9 +152,9 @@ namespace NGO_WebAPI_Backend.Controllers
                     Location = createdActivity.Location ?? string.Empty,
                     MaxParticipants = createdActivity.MaxParticipants ?? 0,
                     CurrentParticipants = createdActivity.CurrentParticipants ?? 0,
-                    StartDate = createdActivity.StartDate?.ToDateTime(TimeOnly.MinValue),
-                    EndDate = createdActivity.EndDate?.ToDateTime(TimeOnly.MinValue),
-                    SignupDeadline = createdActivity.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
+                    StartDate = createdActivity.StartDate,
+                    EndDate = createdActivity.EndDate,
+                    SignupDeadline = createdActivity.SignupDeadline,
                     WorkerId = createdActivity.WorkerId ?? 0,
                     TargetAudience = createdActivity.TargetAudience,
                     Status = createdActivity.Status ?? string.Empty,
@@ -194,9 +194,9 @@ namespace NGO_WebAPI_Backend.Controllers
                 if (request.Location != null) activity.Location = request.Location;
                 if (request.MaxParticipants.HasValue) activity.MaxParticipants = request.MaxParticipants.Value;
                 if (request.CurrentParticipants.HasValue) activity.CurrentParticipants = request.CurrentParticipants.Value;
-                if (request.StartDate.HasValue) activity.StartDate = DateOnly.FromDateTime(request.StartDate.Value);
-                if (request.EndDate.HasValue) activity.EndDate = DateOnly.FromDateTime(request.EndDate.Value);
-                if (request.SignupDeadline.HasValue) activity.SignupDeadline = DateOnly.FromDateTime(request.SignupDeadline.Value);
+                if (request.StartDate.HasValue) activity.StartDate = request.StartDate.Value;
+                if (request.EndDate.HasValue) activity.EndDate = request.EndDate.Value;
+                if (request.SignupDeadline.HasValue) activity.SignupDeadline = request.SignupDeadline.Value;
                 if (request.TargetAudience != null) activity.TargetAudience = request.TargetAudience;
                 if (request.Status != null) activity.Status = request.Status;
 
@@ -304,9 +304,9 @@ namespace NGO_WebAPI_Backend.Controllers
                     Location = a.Location ?? string.Empty,
                     MaxParticipants = a.MaxParticipants ?? 0,
                     CurrentParticipants = a.CurrentParticipants ?? 0,
-                    StartDate = a.StartDate?.ToDateTime(TimeOnly.MinValue),
-                    EndDate = a.EndDate?.ToDateTime(TimeOnly.MinValue),
-                    SignupDeadline = a.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
+                    StartDate = a.StartDate,
+                    EndDate = a.EndDate,
+                    SignupDeadline = a.SignupDeadline,
                     WorkerId = a.WorkerId ?? 0,
                     TargetAudience = a.TargetAudience,
                     Status = a.Status ?? string.Empty,

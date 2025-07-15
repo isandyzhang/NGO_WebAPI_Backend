@@ -19,11 +19,11 @@ public partial class Activity
 
     public int? CurrentParticipants { get; set; }
 
-    public DateOnly? StartDate { get; set; }
+    public DateTime? StartDate { get; set; }
 
-    public DateOnly? EndDate { get; set; }
+    public DateTime? EndDate { get; set; }
 
-    public DateOnly? SignupDeadline { get; set; }
+    public DateTime? SignupDeadline { get; set; }
 
     public int? WorkerId { get; set; }
 
