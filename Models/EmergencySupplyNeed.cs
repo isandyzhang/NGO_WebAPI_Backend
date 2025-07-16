@@ -21,6 +21,25 @@ public partial class EmergencySupplyNeed
 
     public DateTime? PickupDate { get; set; }
 
+    // 新增前端需要的字段
+    public string? ItemName { get; set; }
+
+    public string? Category { get; set; }
+
+    public string? Unit { get; set; }
+
+    public string? Urgency { get; set; } // 'low', 'medium', 'high'
+
+    public string? RequestedBy { get; set; }
+
+    public DateTime? RequestDate { get; set; }
+
+    public decimal? EstimatedCost { get; set; }
+
+    public string? EmergencyReason { get; set; }
+
+    public bool? Matched { get; set; }
+
     public virtual Case? Case { get; set; }
 
     public virtual ICollection<EmergencySupplyMatch> EmergencySupplyMatches { get; set; } = new List<EmergencySupplyMatch>();
