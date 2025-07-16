@@ -278,13 +278,13 @@ namespace NGO_WebAPI_Backend.Controllers
                 if (!string.IsNullOrWhiteSpace(query))
                 {
                     queryable = queryable.Where(c =>
-                        c.Name.Contains(query) ||           // 姓名包含關鍵字
-                        c.Phone.Contains(query) ||          // 電話包含關鍵字
-                        c.IdentityNumber.Contains(query) || // 身分證字號包含關鍵字
-                        c.Email.Contains(query) ||          // 電子郵件包含關鍵字
-                        c.Description.Contains(query) ||    // 描述包含關鍵字
-                        c.City.Contains(query) ||           // 城市包含關鍵字
-                        c.District.Contains(query)          // 區域包含關鍵字
+                        (c.Name != null && c.Name.Contains(query)) ||           // 姓名包含關鍵字
+                        (c.Phone != null && c.Phone.Contains(query)) ||          // 電話包含關鍵字
+                        (c.IdentityNumber != null && c.IdentityNumber.Contains(query)) || // 身分證字號包含關鍵字
+                        (c.Email != null && c.Email.Contains(query)) ||          // 電子郵件包含關鍵字
+                        (c.Description != null && c.Description.Contains(query)) ||    // 描述包含關鍵字
+                        (c.City != null && c.City.Contains(query)) ||           // 城市包含關鍵字
+                        (c.District != null && c.District.Contains(query))          // 區域包含關鍵字
                     );
                 }
 

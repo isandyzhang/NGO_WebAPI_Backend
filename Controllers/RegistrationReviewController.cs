@@ -103,7 +103,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     return NotFound(new { message = "找不到相關的活動" });
                 }
 
-                string oldStatus = reg.Status;
+                string oldStatus = reg.Status ?? string.Empty;
 
                 // 步驟1：更新報名狀態
                 reg.Status = req.Status;
@@ -115,14 +115,14 @@ namespace NGO_WebAPI_Backend.Controllers
                     // 從批准改為取消，減少參與人數
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE Activities SET CurrentParticipants = CASE WHEN CurrentParticipants >= 1 THEN CurrentParticipants - 1 ELSE 0 END WHERE ActivityId = {0}",
-                        reg.ActivityId);
+                        reg.ActivityId ?? 0);
                 }
                 else if (oldStatus != "Approved" && req.Status == "Approved")
                 {
                     // 從未批准改為批准，增加參與人數
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE Activities SET CurrentParticipants = ISNULL(CurrentParticipants, 0) + 1 WHERE ActivityId = {0}",
-                        reg.ActivityId);
+                        reg.ActivityId ?? 0);
                 }
 
                 _logger.LogInformation($"成功更新個案報名狀態，ID: {id}");
@@ -158,7 +158,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 }
 
                 int delta = 1 + (reg.NumberOfCompanions ?? 0);
-                string oldStatus = reg.Status;
+                string oldStatus = reg.Status ?? string.Empty;
 
                 // 步驟1：更新報名狀態
                 reg.Status = req.Status;
@@ -170,14 +170,14 @@ namespace NGO_WebAPI_Backend.Controllers
                     // 從批准改為取消，減少參與人數
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE Activities SET CurrentParticipants = CASE WHEN CurrentParticipants >= {0} THEN CurrentParticipants - {0} ELSE 0 END WHERE ActivityId = {1}",
-                        delta, reg.ActivityId);
+                        delta, reg.ActivityId ?? 0);
                 }
                 else if (oldStatus != "Approved" && req.Status == "Approved")
                 {
                     // 從未批准改為批准，增加參與人數
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE Activities SET CurrentParticipants = ISNULL(CurrentParticipants, 0) + {0} WHERE ActivityId = {1}",
-                        delta, reg.ActivityId);
+                        delta, reg.ActivityId ?? 0);
                 }
 
                 _logger.LogInformation($"成功更新民眾報名狀態，ID: {id}");
