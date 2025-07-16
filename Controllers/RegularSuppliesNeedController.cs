@@ -28,8 +28,9 @@ namespace NGO_WebAPI_Backend.Controllers
                 "不批准" => "rejected",
                 "rejected" => "rejected",
                 "未領取" => "approved",
-                "已領取" => "completed",
-                "completed" => "completed",
+                "已領取" => "collected",
+                "collected" => "collected",
+                "completed" => "collected", // 向後兼容
                 _ => "pending"
             };
         }
@@ -288,6 +289,85 @@ namespace NGO_WebAPI_Backend.Controllers
             }
         }
 
+        // POST: api/RegularSuppliesNeed/5/collect
+        /// <summary>
+        /// 標記常駐物資需求為已領取
+        /// </summary>
+        [HttpPost("{id}/collect")]
+        public async Task<IActionResult> CollectRegularSuppliesNeed(int id, [FromBody] CollectRegularSuppliesNeedRequest? request = null)
+        {
+            try
+            {
+                var need = await _context.RegularSuppliesNeeds.FindAsync(id);
+                if (need == null)
+                {
+                    return NotFound(new { message = "找不到指定的常駐物資需求" });
+                }
+
+                need.Status = "collected";
+                need.PickupDate = DateTime.Now; // 設定領取時間
+                need.BatchId = request?.BatchId; // 設定批次ID
+                _context.Entry(need).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "常駐物資需求標記為已領取成功" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "標記常駐物資需求為已領取失敗", error = ex.Message });
+            }
+        }
+
+        // GET: api/RegularSuppliesNeed/batch/5/details
+        /// <summary>
+        /// 根據批次ID取得分發詳情
+        /// </summary>
+        [HttpGet("batch/{batchId}/details")]
+        public async Task<ActionResult<IEnumerable<object>>> GetBatchDistributionDetails(int batchId)
+        {
+            try
+            {
+                // 先查詢所有具有指定BatchId的記錄，不限制狀態，用於調試
+                var allBatchRecords = await _context.RegularSuppliesNeeds
+                    .Where(r => r.BatchId == batchId)
+                    .Select(r => new { r.RegularNeedId, r.Status, r.BatchId })
+                    .ToListAsync();
+
+                Console.WriteLine($"查詢BatchId {batchId} 的記錄數: {allBatchRecords.Count}");
+                foreach (var record in allBatchRecords)
+                {
+                    Console.WriteLine($"記錄ID: {record.RegularNeedId}, 狀態: '{record.Status}', BatchId: {record.BatchId}");
+                }
+
+                var batchDetails = await _context.RegularSuppliesNeeds
+                    .Include(r => r.Case)
+                    .Include(r => r.Supply)
+                    .ThenInclude(s => s!.SupplyCategory)
+                    .Where(r => r.BatchId == batchId)  // 暫時移除狀態限制來看所有記錄
+                    .Select(r => new
+                    {
+                        needId = r.RegularNeedId,
+                        申請人 = r.Case != null ? r.Case.Name : "未知",
+                        物品名稱 = r.Supply != null ? r.Supply.SupplyName : "未知",
+                        申請數量 = r.Quantity ?? 0,
+                        配對數量 = r.Quantity ?? 0,
+                        申請日期 = r.ApplyDate != null ? r.ApplyDate.Value.ToString("yyyy/M/d") : "",
+                        配對日期 = r.PickupDate != null ? r.PickupDate.Value.ToString("yyyy/M/d") : "",
+                        狀態 = r.Status ?? "未知",
+                        備註 = "系統管理員"
+                    })
+                    .ToListAsync();
+
+                Console.WriteLine($"返回的詳情記錄數: {batchDetails.Count}");
+                return Ok(batchDetails);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"查詢批次詳情時發生錯誤: {ex.Message}");
+                return StatusCode(500, new { message = "取得批次分發詳情失敗", error = ex.Message });
+            }
+        }
+
         // GET: api/RegularSuppliesNeed/stats
         /// <summary>
         /// 取得常駐物資需求統計
@@ -343,5 +423,10 @@ namespace NGO_WebAPI_Backend.Controllers
         public int? Quantity { get; set; }
         public string? Status { get; set; }
         public DateTime? PickupDate { get; set; }
+    }
+
+    public class CollectRegularSuppliesNeedRequest
+    {
+        public int? BatchId { get; set; }
     }
 } 
