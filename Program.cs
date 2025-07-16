@@ -49,6 +49,9 @@ if (!app.Environment.IsDevelopment())
 
 
 
+// 添加默認路由
+app.MapGet("/", () => "NGO API 運作正常 - " + DateTime.Now.ToString());
+
 // 映射控制器路由
 app.MapControllers();
 
