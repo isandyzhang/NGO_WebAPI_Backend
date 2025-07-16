@@ -371,29 +371,29 @@ namespace NGO_WebAPI_Backend.Controllers
         /// </summary>
         [HttpPost("upload/test")]
         [AllowAnonymous]
-        public async Task<ActionResult<string>> TestUpload(IFormFile file)
+        public Task<ActionResult<string>> TestUpload(IFormFile file)
         {
             try
             {
                 if (file == null || file.Length == 0)
                 {
-                    return BadRequest(new { message = "請選擇圖片檔案" });
+                    return Task.FromResult<ActionResult<string>>(BadRequest(new { message = "請選擇圖片檔案" }));
                 }
 
                 _logger.LogInformation($"收到測試上傳請求，檔案: {file.FileName}, 大小: {file.Length} bytes");
 
-                return Ok(new { 
+                return Task.FromResult<ActionResult<string>>(Ok(new { 
                     message = "測試上傳成功！",
                     fileName = file.FileName,
                     fileSize = file.Length,
                     contentType = file.ContentType,
                     imageUrl = "https://example.com/test-image.jpg"
-                });
+                }));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "測試上傳失敗");
-                return StatusCode(500, new { message = "測試上傳失敗", error = ex.Message });
+                return Task.FromResult<ActionResult<string>>(StatusCode(500, new { message = "測試上傳失敗", error = ex.Message }));
             }
         }
 
