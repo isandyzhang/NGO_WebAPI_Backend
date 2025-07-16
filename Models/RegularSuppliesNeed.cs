@@ -19,6 +19,8 @@ public partial class RegularSuppliesNeed
 
     public DateTime? PickupDate { get; set; }
 
+    public int? BatchId { get; set; }
+
     public virtual Case? Case { get; set; }
 
     public virtual ICollection<RegularSupplyMatch> RegularSupplyMatches { get; set; } = new List<RegularSupplyMatch>();

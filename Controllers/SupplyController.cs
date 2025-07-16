@@ -164,13 +164,13 @@ namespace NGO_WebAPI_Backend.Controllers
                     return NotFound(new { message = "找不到指定的物資" });
                 }
 
-                supply.SupplyName = request.Name ?? supply.SupplyName;
-                supply.SupplyCategoryId = request.CategoryId ?? supply.SupplyCategoryId;
-                supply.SupplyQuantity = request.Quantity ?? supply.SupplyQuantity;
-                supply.SupplyPrice = request.Price ?? supply.SupplyPrice;
-                supply.SupplyDescription = request.Description ?? supply.SupplyDescription;
-                supply.SupplyType = request.SupplyType ?? supply.SupplyType;
-                supply.ImageUrl = request.ImageUrl ?? supply.ImageUrl;
+                if (request.Name != null) supply.SupplyName = request.Name;
+                if (request.CategoryId.HasValue) supply.SupplyCategoryId = request.CategoryId;
+                if (request.Quantity.HasValue) supply.SupplyQuantity = request.Quantity;
+                if (request.Price.HasValue) supply.SupplyPrice = request.Price;
+                if (request.Description != null) supply.SupplyDescription = request.Description;
+                if (request.SupplyType != null) supply.SupplyType = request.SupplyType;
+                if (request.ImageUrl != null) supply.ImageUrl = request.ImageUrl;
 
                 _context.Entry(supply).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
