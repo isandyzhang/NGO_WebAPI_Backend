@@ -84,8 +84,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     Worker = new WorkerInfo
                     {
                         WorkerId = worker.WorkerId,
-                        Email = worker.Email,
-                        Name = worker.Name
+                        Email = worker.Email ?? string.Empty,
+                        Name = worker.Name ?? string.Empty
                     }
                 });
             }
@@ -113,8 +113,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     .Select(w => new WorkerInfo
                     {
                         WorkerId = w.WorkerId,
-                        Email = w.Email,
-                        Name = w.Name
+                        Email = w.Email ?? string.Empty,
+                        Name = w.Name ?? string.Empty
                     })
                     .ToListAsync();
 

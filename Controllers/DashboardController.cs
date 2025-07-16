@@ -18,6 +18,28 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
+        /// 獲取Dashboard基本資訊 (默認路由)
+        /// </summary>
+        [HttpGet]
+        public async Task<ActionResult> GetDashboard()
+        {
+            try
+            {
+                _logger.LogInformation("Dashboard API 運作正常");
+                return Ok(new { 
+                    message = "Dashboard API 運作正常", 
+                    timestamp = DateTime.Now,
+                    version = "1.0.0"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Dashboard API 發生錯誤");
+                return StatusCode(500, new { message = "服務器錯誤" });
+            }
+        }
+
+        /// <summary>
         /// 獲取Dashboard統計數據
         /// </summary>
         [HttpGet("stats")]
