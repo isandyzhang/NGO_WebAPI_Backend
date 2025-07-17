@@ -13,6 +13,8 @@ public partial class Worker
 
     public string? Name { get; set; }
 
+    public string? Role { get; set; } // 'staff', 'supervisor', 'admin'
+
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
     public virtual ICollection<Case> Cases { get; set; } = new List<Case>();

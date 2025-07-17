@@ -1,18 +1,37 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Services;
+using NGO_WebAPI_Backend.Attributes;
 
 namespace NGO_WebAPI_Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class RegularSuppliesNeedController : ControllerBase
     {
         private readonly NgoplatformDbContext _context;
+        private readonly IPermissionService _permissionService;
 
-        public RegularSuppliesNeedController(NgoplatformDbContext context)
+        public RegularSuppliesNeedController(NgoplatformDbContext context, IPermissionService permissionService)
         {
             _context = context;
+            _permissionService = permissionService;
+        }
+
+        /// <summary>
+        /// 從 HttpContext 取得當前工作人員 ID
+        /// </summary>
+        private int GetCurrentWorkerId()
+        {
+            var workerIdClaim = HttpContext.Items["WorkerId"];
+            if (workerIdClaim != null && int.TryParse(workerIdClaim.ToString(), out int workerId))
+            {
+                return workerId;
+            }
+            throw new UnauthorizedAccessException("無法取得工作人員 ID");
         }
 
         /// <summary>
@@ -71,17 +90,21 @@ namespace NGO_WebAPI_Backend.Controllers
 
         // GET: api/RegularSuppliesNeed
         /// <summary>
-        /// 取得所有常駐物資需求
+        /// 取得所有常駐物資需求（按權限過濾）
         /// </summary>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<object>>> GetRegularSuppliesNeeds()
         {
             try
             {
+                var currentWorkerId = GetCurrentWorkerId();
+                var accessibleCaseIds = await _permissionService.GetAccessibleCaseIdsAsync(currentWorkerId);
+                
                 var needs = await _context.RegularSuppliesNeeds
                     .Include(r => r.Case)
                     .Include(r => r.Supply)
                     .ThenInclude(s => s!.SupplyCategory)
+                    .Where(r => r.CaseId.HasValue && accessibleCaseIds.Contains(r.CaseId.Value))
                     .Select(r => new
                     {
                         needId = r.RegularNeedId,
@@ -250,6 +273,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 批准常駐物資需求
         /// </summary>
         [HttpPost("{id}/approve")]
+        [Permission(PermissionAction.Approve)]
         public async Task<IActionResult> ApproveRegularSuppliesNeed(int id)
         {
             try
@@ -277,6 +301,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 拒絕常駐物資需求
         /// </summary>
         [HttpPost("{id}/reject")]
+        [Permission(PermissionAction.Reject)]
         public async Task<IActionResult> RejectRegularSuppliesNeed(int id)
         {
             try
@@ -304,6 +329,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 員工確認物資需求，轉入等待主管審核狀態
         /// </summary>
         [HttpPost("{id}/confirm")]
+        [Permission(PermissionAction.Approve)]
         public async Task<IActionResult> ConfirmRegularSuppliesNeed(int id)
         {
             try
@@ -337,6 +363,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 主管批准物資需求
         /// </summary>
         [HttpPost("{id}/supervisor-approve")]
+        [Permission(PermissionAction.Supervise)]
         public async Task<IActionResult> SupervisorApproveRegularSuppliesNeed(int id)
         {
             try
@@ -370,6 +397,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 主管拒絕物資需求
         /// </summary>
         [HttpPost("{id}/supervisor-reject")]
+        [Permission(PermissionAction.Supervise)]
         public async Task<IActionResult> SupervisorRejectRegularSuppliesNeed(int id)
         {
             try
@@ -403,6 +431,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 標記常駐物資需求為已領取
         /// </summary>
         [HttpPost("{id}/collect")]
+        [Permission(PermissionAction.Distribute)]
         public async Task<IActionResult> CollectRegularSuppliesNeed(int id, [FromBody] CollectRegularSuppliesNeedRequest? request = null)
         {
             try

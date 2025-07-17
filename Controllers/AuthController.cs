@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
 using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Services;
 
 namespace NGO_WebAPI_Backend.Controllers
 {
@@ -14,16 +14,18 @@ namespace NGO_WebAPI_Backend.Controllers
     {
         private readonly NgoplatformDbContext _context;
         private readonly ILogger<AuthController> _logger;
+        private readonly IJwtService _jwtService;
 
         /// <summary>
         /// 建構函式
         /// </summary>
         /// <param name="context">資料庫上下文</param>
         /// <param name="logger">記錄器</param>
-        public AuthController(NgoplatformDbContext context, ILogger<AuthController> logger)
+        public AuthController(NgoplatformDbContext context, ILogger<AuthController> logger, IJwtService jwtService)
         {
             _context = context;
             _logger = logger;
+            _jwtService = jwtService;
         }
 
         /// <summary>
@@ -75,17 +77,21 @@ namespace NGO_WebAPI_Backend.Controllers
                     });
                 }
 
-                // 登入成功
+                // 登入成功，生成JWT Token
+                var token = _jwtService.GenerateToken(worker);
+                
                 _logger.LogInformation("登入成功 {Email}", request.Email);
                 return Ok(new LoginResponse
                 {
                     Success = true,
                     Message = "登入成功",
+                    Token = token,
                     Worker = new WorkerInfo
                     {
                         WorkerId = worker.WorkerId,
                         Email = worker.Email ?? string.Empty,
-                        Name = worker.Name ?? string.Empty
+                        Name = worker.Name ?? string.Empty,
+                        Role = worker.Role ?? "staff"
                     }
                 });
             }
@@ -172,6 +178,7 @@ namespace NGO_WebAPI_Backend.Controllers
     {
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
+        public string? Token { get; set; }
         public WorkerInfo? Worker { get; set; }
     }
 
@@ -183,5 +190,6 @@ namespace NGO_WebAPI_Backend.Controllers
         public int WorkerId { get; set; }
         public string Email { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string Role { get; set; } = "staff";
     }
 } 
