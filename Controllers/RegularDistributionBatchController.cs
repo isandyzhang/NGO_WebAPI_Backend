@@ -130,8 +130,9 @@ public class RegularDistributionBatchController : ControllerBase
                 return NotFound(new { error = "找不到指定的分發批次" });
             }
 
-            batch.Status = "completed";
+            batch.Status = "approved";
             batch.ApprovedAt = DateTime.Now;
+            batch.ApprovedByWorkerId = request.ApprovedByWorkerId; // 使用請求中的 ID
             
             _context.Entry(batch).State = EntityState.Modified;
             await _context.SaveChangesAsync();
@@ -141,6 +142,34 @@ public class RegularDistributionBatchController : ControllerBase
         catch (Exception ex)
         {
             return BadRequest(new { error = "無法批准分發批次", detail = ex.Message });
+        }
+    }
+
+    // 拒絕分發批次
+    [HttpPost("{id}/reject")]
+    public async Task<ActionResult<object>> RejectDistributionBatch(int id, [FromBody] RejectDistributionBatchRequest request)
+    {
+        try
+        {
+            var batch = await _context.RegularDistributionBatches.FindAsync(id);
+            if (batch == null)
+            {
+                return NotFound(new { error = "找不到指定的分發批次" });
+            }
+
+            batch.Status = "rejected";
+            batch.ApprovedAt = DateTime.Now;
+            batch.ApprovedByWorkerId = request.RejectedByWorkerId; // 使用請求中的 ID
+            batch.Notes = request.RejectReason ?? "主管拒絕";
+            
+            _context.Entry(batch).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "分發批次已拒絕" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = "無法拒絕分發批次", detail = ex.Message });
         }
     }
 
@@ -189,4 +218,10 @@ public class CreateDistributionBatchRequest
 public class ApproveDistributionBatchRequest
 {
     public int ApprovedByWorkerId { get; set; }
+}
+
+public class RejectDistributionBatchRequest
+{
+    public int RejectedByWorkerId { get; set; }
+    public string? RejectReason { get; set; }
 } 

@@ -31,6 +31,8 @@ namespace NGO_WebAPI_Backend.Controllers
                 "已領取" => "collected",
                 "collected" => "collected",
                 "completed" => "collected", // 向後兼容
+                "等待主管審核" => "pending_super",
+                "pending_super" => "pending_super",
                 _ => "pending"
             };
         }
@@ -57,6 +59,14 @@ namespace NGO_WebAPI_Backend.Controllers
         private bool IsRejectedStatus(string status)
         {
             return status == "rejected" || status == "不批准";
+        }
+
+        /// <summary>
+        /// 檢查狀態是否為等待主管審核狀態
+        /// </summary>
+        private bool IsPendingSuperApprovalStatus(string status)
+        {
+            return status == "pending_super" || status == "等待主管審核";
         }
 
         // GET: api/RegularSuppliesNeed
@@ -286,6 +296,105 @@ namespace NGO_WebAPI_Backend.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "拒絕常駐物資需求失敗", error = ex.Message });
+            }
+        }
+
+        // POST: api/RegularSuppliesNeed/5/confirm
+        /// <summary>
+        /// 員工確認物資需求，轉入等待主管審核狀態
+        /// </summary>
+        [HttpPost("{id}/confirm")]
+        public async Task<IActionResult> ConfirmRegularSuppliesNeed(int id)
+        {
+            try
+            {
+                var need = await _context.RegularSuppliesNeeds.FindAsync(id);
+                if (need == null)
+                {
+                    return NotFound(new { message = "找不到指定的常駐物資需求" });
+                }
+
+                // 只有已批准的申請可以確認
+                if (!IsApprovedStatus(need.Status ?? ""))
+                {
+                    return BadRequest(new { message = "只有已批准的申請可以確認" });
+                }
+
+                need.Status = "pending_super";
+                _context.Entry(need).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "物資需求確認成功，已轉入主管審核" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "確認物資需求失敗", error = ex.Message });
+            }
+        }
+
+        // POST: api/RegularSuppliesNeed/5/supervisor-approve
+        /// <summary>
+        /// 主管批准物資需求
+        /// </summary>
+        [HttpPost("{id}/supervisor-approve")]
+        public async Task<IActionResult> SupervisorApproveRegularSuppliesNeed(int id)
+        {
+            try
+            {
+                var need = await _context.RegularSuppliesNeeds.FindAsync(id);
+                if (need == null)
+                {
+                    return NotFound(new { message = "找不到指定的常駐物資需求" });
+                }
+
+                // 只有等待主管審核的申請可以批准
+                if (!IsPendingSuperApprovalStatus(need.Status ?? ""))
+                {
+                    return BadRequest(new { message = "只有等待主管審核的申請可以批准" });
+                }
+
+                need.Status = "collected";
+                _context.Entry(need).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "主管批准成功，物資已發放" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "主管批准失敗", error = ex.Message });
+            }
+        }
+
+        // POST: api/RegularSuppliesNeed/5/supervisor-reject
+        /// <summary>
+        /// 主管拒絕物資需求
+        /// </summary>
+        [HttpPost("{id}/supervisor-reject")]
+        public async Task<IActionResult> SupervisorRejectRegularSuppliesNeed(int id)
+        {
+            try
+            {
+                var need = await _context.RegularSuppliesNeeds.FindAsync(id);
+                if (need == null)
+                {
+                    return NotFound(new { message = "找不到指定的常駐物資需求" });
+                }
+
+                // 只有等待主管審核的申請可以拒絕
+                if (!IsPendingSuperApprovalStatus(need.Status ?? ""))
+                {
+                    return BadRequest(new { message = "只有等待主管審核的申請可以拒絕" });
+                }
+
+                need.Status = "rejected";
+                _context.Entry(need).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "主管拒絕成功" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "主管拒絕失敗", error = ex.Message });
             }
         }
 
