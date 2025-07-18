@@ -29,26 +29,27 @@ namespace NGO_WebAPI_Backend.Controllers
 
                 var emergencyNeeds = await _context.EmergencySupplyNeeds
                     .Include(e => e.Case)
-                    .Include(e => e.Supply)
-                    .ThenInclude(s => s!.SupplyCategory)
                     .Include(e => e.Worker)
                     .ToListAsync();
 
                 var response = emergencyNeeds.Select(e => new EmergencySupplyNeedResponse
                 {
                     EmergencyNeedId = e.EmergencyNeedId,
-                    ItemName = e.Supply?.SupplyName ?? "未知物品",
-                    Category = e.Supply?.SupplyCategory?.SupplyCategoryName ?? "未分類",
+                    ItemName = e.SupplyName ?? "未知物品",
+                    Category = "緊急物資",
                     Quantity = e.Quantity ?? 0,
+                    CollectedQuantity = e.CollectedQuantity ?? 0,
                     Unit = "個",
                     RequestedBy = e.Worker?.Name ?? "未知申請人",
-                    RequestDate = e.VisitDate ?? DateTime.Now,
+                    RequestDate = e.CreatedDate ?? DateTime.Now,
                     Status = e.Status ?? "pending",
-                    EstimatedCost = (e.Quantity ?? 0) * (e.Supply?.SupplyPrice ?? 0),
+                    Priority = e.Priority ?? "medium",
+                    Description = e.Description ?? "",
+                    ImageUrl = e.ImageUrl ?? "",
                     CaseName = e.Case?.Name ?? "未知個案",
                     CaseId = e.CaseId?.ToString() ?? "未知",
                     Matched = e.Status == "approved",
-                    EmergencyReason = "緊急物資需求"
+                    EmergencyReason = e.Description ?? "緊急物資需求"
                 }).ToList();
 
                 _logger.LogInformation($"成功獲取 {response.Count} 個緊急物資需求");
@@ -71,9 +72,7 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogInformation("開始獲取緊急物資需求統計");
 
-                var emergencyNeeds = await _context.EmergencySupplyNeeds
-                    .Include(e => e.Supply)
-                    .ToListAsync();
+                var emergencyNeeds = await _context.EmergencySupplyNeeds.ToListAsync();
 
                 var statistics = new EmergencySupplyNeedStatistics
                 {
@@ -81,7 +80,10 @@ namespace NGO_WebAPI_Backend.Controllers
                     PendingRequests = emergencyNeeds.Count(e => e.Status == "pending"),
                     ApprovedRequests = emergencyNeeds.Count(e => e.Status == "approved"),
                     RejectedRequests = emergencyNeeds.Count(e => e.Status == "rejected"),
-                    TotalEstimatedCost = emergencyNeeds.Sum(e => (e.Quantity ?? 0) * (e.Supply?.SupplyPrice ?? 0))
+                    CompletedRequests = emergencyNeeds.Count(e => e.Status == "completed"),
+                    HighPriorityRequests = emergencyNeeds.Count(e => e.Priority == "high"),
+                    TotalQuantity = emergencyNeeds.Sum(e => e.Quantity ?? 0),
+                    CollectedQuantity = emergencyNeeds.Sum(e => e.CollectedQuantity ?? 0)
                 };
 
                 _logger.LogInformation("成功獲取緊急物資需求統計");
@@ -106,8 +108,6 @@ namespace NGO_WebAPI_Backend.Controllers
 
                 var emergencyNeed = await _context.EmergencySupplyNeeds
                     .Include(e => e.Case)
-                    .Include(e => e.Supply)
-                    .ThenInclude(s => s!.SupplyCategory)
                     .Include(e => e.Worker)
                     .FirstOrDefaultAsync(e => e.EmergencyNeedId == id);
 
@@ -120,18 +120,21 @@ namespace NGO_WebAPI_Backend.Controllers
                 var response = new EmergencySupplyNeedResponse
                 {
                     EmergencyNeedId = emergencyNeed.EmergencyNeedId,
-                    ItemName = emergencyNeed.Supply?.SupplyName ?? "未知物品",
-                    Category = emergencyNeed.Supply?.SupplyCategory?.SupplyCategoryName ?? "未分類",
+                    ItemName = emergencyNeed.SupplyName ?? "未知物品",
+                    Category = "緊急物資",
                     Quantity = emergencyNeed.Quantity ?? 0,
+                    CollectedQuantity = emergencyNeed.CollectedQuantity ?? 0,
                     Unit = "個",
                     RequestedBy = emergencyNeed.Worker?.Name ?? "未知申請人",
-                    RequestDate = emergencyNeed.VisitDate ?? DateTime.Now,
+                    RequestDate = emergencyNeed.CreatedDate ?? DateTime.Now,
                     Status = emergencyNeed.Status ?? "pending",
-                    EstimatedCost = (emergencyNeed.Quantity ?? 0) * (emergencyNeed.Supply?.SupplyPrice ?? 0),
+                    Priority = emergencyNeed.Priority ?? "medium",
+                    Description = emergencyNeed.Description ?? "",
+                    ImageUrl = emergencyNeed.ImageUrl ?? "",
                     CaseName = emergencyNeed.Case?.Name ?? "未知個案",
                     CaseId = emergencyNeed.CaseId?.ToString() ?? "未知",
                     Matched = emergencyNeed.Status == "approved",
-                    EmergencyReason = "緊急物資需求"
+                    EmergencyReason = emergencyNeed.Description ?? "緊急物資需求"
                 };
 
                 _logger.LogInformation($"成功獲取緊急物資需求 ID: {id}");
@@ -162,11 +165,16 @@ namespace NGO_WebAPI_Backend.Controllers
                 var emergencyNeed = new EmergencySupplyNeed
                 {
                     CaseId = request.CaseId,
-                    SupplyId = request.SupplyId,
                     WorkerId = request.WorkerId,
+                    SupplyName = request.SupplyName,
                     Quantity = request.Quantity,
+                    CollectedQuantity = 0,
                     Status = request.Status ?? "pending",
-                    VisitDate = request.RequestDate ?? DateTime.Now
+                    Priority = request.Priority ?? "medium",
+                    Description = request.Description,
+                    ImageUrl = request.ImageUrl,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now
                 };
 
                 _context.EmergencySupplyNeeds.Add(emergencyNeed);
@@ -177,33 +185,27 @@ namespace NGO_WebAPI_Backend.Controllers
                     .Reference(e => e.Case)
                     .LoadAsync();
                 await _context.Entry(emergencyNeed)
-                    .Reference(e => e.Supply)
-                    .LoadAsync();
-                if (emergencyNeed.Supply != null)
-                {
-                    await _context.Entry(emergencyNeed.Supply)
-                        .Reference(s => s.SupplyCategory)
-                        .LoadAsync();
-                }
-                await _context.Entry(emergencyNeed)
                     .Reference(e => e.Worker)
                     .LoadAsync();
 
                 var response = new EmergencySupplyNeedResponse
                 {
                     EmergencyNeedId = emergencyNeed.EmergencyNeedId,
-                    ItemName = emergencyNeed.Supply?.SupplyName ?? "未知物品",
-                    Category = emergencyNeed.Supply?.SupplyCategory?.SupplyCategoryName ?? "未分類",
+                    ItemName = emergencyNeed.SupplyName ?? "未知物品",
+                    Category = "緊急物資",
                     Quantity = emergencyNeed.Quantity ?? 0,
+                    CollectedQuantity = emergencyNeed.CollectedQuantity ?? 0,
                     Unit = "個",
                     RequestedBy = emergencyNeed.Worker?.Name ?? "未知申請人",
-                    RequestDate = emergencyNeed.VisitDate ?? DateTime.Now,
+                    RequestDate = emergencyNeed.CreatedDate ?? DateTime.Now,
                     Status = emergencyNeed.Status ?? "pending",
-                    EstimatedCost = (emergencyNeed.Quantity ?? 0) * (emergencyNeed.Supply?.SupplyPrice ?? 0),
+                    Priority = emergencyNeed.Priority ?? "medium",
+                    Description = emergencyNeed.Description ?? "",
+                    ImageUrl = emergencyNeed.ImageUrl ?? "",
                     CaseName = emergencyNeed.Case?.Name ?? "未知個案",
                     CaseId = emergencyNeed.CaseId?.ToString() ?? "未知",
                     Matched = emergencyNeed.Status == "approved",
-                    EmergencyReason = "緊急物資需求"
+                    EmergencyReason = emergencyNeed.Description ?? "緊急物資需求"
                 };
 
                 _logger.LogInformation($"成功創建緊急物資需求 ID: {emergencyNeed.EmergencyNeedId}");
@@ -233,14 +235,13 @@ namespace NGO_WebAPI_Backend.Controllers
                     return Ok(new { message = "測試數據已存在" });
                 }
 
-                // 先獲取一些現有的Supply、Case、Worker數據
-                var supplies = await _context.Supplies.Take(3).ToListAsync();
+                // 先獲取一些現有的Case、Worker數據
                 var cases = await _context.Cases.Take(3).ToListAsync();
                 var workers = await _context.Workers.Take(3).ToListAsync();
 
-                if (!supplies.Any() || !cases.Any() || !workers.Any())
+                if (!cases.Any() || !workers.Any())
                 {
-                    return BadRequest(new { message = "缺少必要的基礎數據（Supply、Case、Worker）" });
+                    return BadRequest(new { message = "缺少必要的基礎數據（Case、Worker）" });
                 }
 
                 var testData = new List<EmergencySupplyNeed>
@@ -248,29 +249,41 @@ namespace NGO_WebAPI_Backend.Controllers
                     new EmergencySupplyNeed
                     {
                         CaseId = cases[0].CaseId,
-                        SupplyId = supplies[0].SupplyId,
                         WorkerId = workers[0].WorkerId,
+                        SupplyName = "緊急毛毯",
                         Quantity = 5,
+                        CollectedQuantity = 0,
                         Status = "pending",
-                        VisitDate = DateTime.Now.AddDays(-2)
+                        Priority = "high",
+                        Description = "個案家庭因火災需要緊急毛毯",
+                        CreatedDate = DateTime.Now.AddDays(-2),
+                        UpdatedDate = DateTime.Now.AddDays(-2)
                     },
                     new EmergencySupplyNeed
                     {
                         CaseId = cases.Count > 1 ? cases[1].CaseId : cases[0].CaseId,
-                        SupplyId = supplies.Count > 1 ? supplies[1].SupplyId : supplies[0].SupplyId,
                         WorkerId = workers.Count > 1 ? workers[1].WorkerId : workers[0].WorkerId,
+                        SupplyName = "急用藥品",
                         Quantity = 3,
+                        CollectedQuantity = 0,
                         Status = "approved",
-                        VisitDate = DateTime.Now.AddDays(-1)
+                        Priority = "high",
+                        Description = "糖尿病患者急需胰島素",
+                        CreatedDate = DateTime.Now.AddDays(-1),
+                        UpdatedDate = DateTime.Now.AddDays(-1)
                     },
                     new EmergencySupplyNeed
                     {
                         CaseId = cases.Count > 2 ? cases[2].CaseId : cases[0].CaseId,
-                        SupplyId = supplies.Count > 2 ? supplies[2].SupplyId : supplies[0].SupplyId,
                         WorkerId = workers.Count > 2 ? workers[2].WorkerId : workers[0].WorkerId,
+                        SupplyName = "緊急食物包",
                         Quantity = 10,
+                        CollectedQuantity = 0,
                         Status = "pending",
-                        VisitDate = DateTime.Now.AddHours(-6)
+                        Priority = "medium",
+                        Description = "失業家庭需要緊急食物援助",
+                        CreatedDate = DateTime.Now.AddHours(-6),
+                        UpdatedDate = DateTime.Now.AddHours(-6)
                     }
                 };
 
@@ -385,11 +398,14 @@ namespace NGO_WebAPI_Backend.Controllers
         public string ItemName { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public int Quantity { get; set; }
+        public int CollectedQuantity { get; set; }
         public string Unit { get; set; } = string.Empty;
         public string RequestedBy { get; set; } = string.Empty;
         public DateTime RequestDate { get; set; }
         public string Status { get; set; } = string.Empty;
-        public decimal EstimatedCost { get; set; }
+        public string Priority { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
         public string CaseName { get; set; } = string.Empty;
         public string CaseId { get; set; } = string.Empty;
         public bool Matched { get; set; }
@@ -399,11 +415,13 @@ namespace NGO_WebAPI_Backend.Controllers
     public class CreateEmergencySupplyNeedRequest
     {
         public int? CaseId { get; set; }
-        public int? SupplyId { get; set; }
         public int? WorkerId { get; set; }
+        public string? SupplyName { get; set; }
         public int? Quantity { get; set; }
         public string? Status { get; set; }
-        public DateTime? RequestDate { get; set; }
+        public string? Priority { get; set; }
+        public string? Description { get; set; }
+        public string? ImageUrl { get; set; }
     }
 
     public class EmergencySupplyNeedStatistics
@@ -412,6 +430,9 @@ namespace NGO_WebAPI_Backend.Controllers
         public int PendingRequests { get; set; }
         public int ApprovedRequests { get; set; }
         public int RejectedRequests { get; set; }
-        public decimal TotalEstimatedCost { get; set; }
+        public int CompletedRequests { get; set; }
+        public int HighPriorityRequests { get; set; }
+        public int TotalQuantity { get; set; }
+        public int CollectedQuantity { get; set; }
     }
 } 
