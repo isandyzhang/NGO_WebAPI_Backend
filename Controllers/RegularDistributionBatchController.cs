@@ -168,15 +168,33 @@ public class RegularDistributionBatchController : ControllerBase
                 return NotFound(new { error = "找不到指定的分發批次" });
             }
 
+            // 將批次狀態設為拒絕
             batch.Status = "rejected";
             batch.ApprovedAt = DateTime.Now;
-            batch.ApprovedByWorkerId = request.RejectedByWorkerId; // 使用請求中的 ID
+            batch.ApprovedByWorkerId = request.RejectedByWorkerId;
             batch.Notes = request.RejectReason ?? "主管拒絕";
+            
+            // 重點：將批次內的所有物資需求重新設回 "approved" 狀態
+            // 這樣員工就可以重新處理這些申請，避免一個老鼠屎壞了一鍋粥
+            var needsInBatch = await _context.RegularSuppliesNeeds
+                .Where(n => n.BatchId == id)
+                .ToListAsync();
+
+            foreach (var need in needsInBatch)
+            {
+                need.Status = "approved"; // 重新設回已批准狀態
+                need.BatchId = null;      // 清除批次關聯，讓它們可以重新分配
+                _context.Entry(need).State = EntityState.Modified;
+            }
             
             _context.Entry(batch).State = EntityState.Modified;
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "分發批次已拒絕" });
+            return Ok(new { 
+                message = "分發批次已拒絕", 
+                affectedRequests = needsInBatch.Count,
+                detail = $"批次內的 {needsInBatch.Count} 個物資需求已重新設為等待處理狀態"
+            });
         }
         catch (Exception ex)
         {
