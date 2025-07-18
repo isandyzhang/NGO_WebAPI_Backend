@@ -71,22 +71,33 @@ namespace NGO_WebAPI_Backend.Controllers
 
         // GET: api/RegularSuppliesNeed
         /// <summary>
-        /// 取得所有常駐物資需求
+        /// 取得所有常駐物資需求 (根據登入者權限過濾)
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetRegularSuppliesNeeds()
+        public async Task<ActionResult<IEnumerable<object>>> GetRegularSuppliesNeeds([FromQuery] int? workerId = null)
         {
             try
             {
-                var needs = await _context.RegularSuppliesNeeds
+                IQueryable<RegularSuppliesNeed> query = _context.RegularSuppliesNeeds
                     .Include(r => r.Case)
+                    .ThenInclude(c => c!.Worker) // 加入 Worker 資訊
                     .Include(r => r.Supply)
-                    .ThenInclude(s => s!.SupplyCategory)
+                    .ThenInclude(s => s!.SupplyCategory);
+
+                // 根據傳入的 workerId 進行權限過濾
+                if (workerId.HasValue)
+                {
+                    query = query.Where(r => r.Case != null && r.Case.WorkerId == workerId.Value);
+                }
+
+                var needs = await query
                     .Select(r => new
                     {
                         needId = r.RegularNeedId,
                         caseId = r.CaseId,
                         caseName = r.Case != null ? r.Case.Name : "未知",
+                        assignedWorkerId = r.Case != null ? r.Case.WorkerId : null, // 管理社工ID
+                        assignedWorkerName = r.Case != null && r.Case.Worker != null ? r.Case.Worker.Name : "未分配", // 管理社工姓名
                         supplyId = r.SupplyId,
                         itemName = r.Supply != null ? r.Supply.SupplyName : "未知",
                         category = r.Supply != null && r.Supply.SupplyCategory != null ? r.Supply.SupplyCategory.SupplyCategoryName : "未分類",
@@ -479,16 +490,27 @@ namespace NGO_WebAPI_Backend.Controllers
 
         // GET: api/RegularSuppliesNeed/stats
         /// <summary>
-        /// 取得常駐物資需求統計
+        /// 取得常駐物資需求統計 (根據登入者權限過濾)
         /// </summary>
         [HttpGet("stats")]
-        public async Task<ActionResult<object>> GetRegularSuppliesNeedStats()
+        public async Task<ActionResult<object>> GetRegularSuppliesNeedStats([FromQuery] int? workerId = null)
         {
             try
             {
-                var totalRequests = await _context.RegularSuppliesNeeds.CountAsync();
+                // 建立基本查詢
+                IQueryable<RegularSuppliesNeed> query = _context.RegularSuppliesNeeds
+                    .Include(r => r.Case)
+                    .Include(r => r.Supply);
+
+                // 根據workerId過濾
+                if (workerId.HasValue)
+                {
+                    query = query.Where(r => r.Case != null && r.Case.WorkerId == workerId.Value);
+                }
+
+                var totalRequests = await query.CountAsync();
                 
-                var allRequests = await _context.RegularSuppliesNeeds
+                var allRequests = await query
                     .Select(r => r.Status)
                     .ToListAsync();
                 
@@ -496,8 +518,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 var approvedRequests = allRequests.Count(status => IsApprovedStatus(status ?? ""));
                 var rejectedRequests = allRequests.Count(status => IsRejectedStatus(status ?? ""));
 
-                var totalEstimatedCost = await _context.RegularSuppliesNeeds
-                    .Include(r => r.Supply)
+                var totalEstimatedCost = await query
                     .SumAsync(r => (r.Quantity ?? 0) * (r.Supply != null ? r.Supply.SupplyPrice ?? 0 : 0));
 
                 var stats = new

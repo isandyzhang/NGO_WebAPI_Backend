@@ -510,6 +510,10 @@ public partial class NgoplatformDbContext : DbContext
             entity.Property(e => e.Password)
                 .HasMaxLength(255)
                 .IsUnicode(false);
+            entity.Property(e => e.Role)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("staff");
         });
 
         OnModelCreatingPartial(modelBuilder);
