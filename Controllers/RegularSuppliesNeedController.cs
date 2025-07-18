@@ -490,16 +490,27 @@ namespace NGO_WebAPI_Backend.Controllers
 
         // GET: api/RegularSuppliesNeed/stats
         /// <summary>
-        /// 取得常駐物資需求統計
+        /// 取得常駐物資需求統計 (根據登入者權限過濾)
         /// </summary>
         [HttpGet("stats")]
-        public async Task<ActionResult<object>> GetRegularSuppliesNeedStats()
+        public async Task<ActionResult<object>> GetRegularSuppliesNeedStats([FromQuery] int? workerId = null)
         {
             try
             {
-                var totalRequests = await _context.RegularSuppliesNeeds.CountAsync();
+                // 建立基本查詢
+                IQueryable<RegularSuppliesNeed> query = _context.RegularSuppliesNeeds
+                    .Include(r => r.Case)
+                    .Include(r => r.Supply);
+
+                // 根據workerId過濾
+                if (workerId.HasValue)
+                {
+                    query = query.Where(r => r.Case != null && r.Case.WorkerId == workerId.Value);
+                }
+
+                var totalRequests = await query.CountAsync();
                 
-                var allRequests = await _context.RegularSuppliesNeeds
+                var allRequests = await query
                     .Select(r => r.Status)
                     .ToListAsync();
                 
@@ -507,8 +518,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 var approvedRequests = allRequests.Count(status => IsApprovedStatus(status ?? ""));
                 var rejectedRequests = allRequests.Count(status => IsRejectedStatus(status ?? ""));
 
-                var totalEstimatedCost = await _context.RegularSuppliesNeeds
-                    .Include(r => r.Supply)
+                var totalEstimatedCost = await query
                     .SumAsync(r => (r.Quantity ?? 0) * (r.Supply != null ? r.Supply.SupplyPrice ?? 0 : 0));
 
                 var stats = new
