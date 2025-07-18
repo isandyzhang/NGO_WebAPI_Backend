@@ -71,22 +71,33 @@ namespace NGO_WebAPI_Backend.Controllers
 
         // GET: api/RegularSuppliesNeed
         /// <summary>
-        /// 取得所有常駐物資需求
+        /// 取得所有常駐物資需求 (根據登入者權限過濾)
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetRegularSuppliesNeeds()
+        public async Task<ActionResult<IEnumerable<object>>> GetRegularSuppliesNeeds([FromQuery] int? workerId = null)
         {
             try
             {
-                var needs = await _context.RegularSuppliesNeeds
+                IQueryable<RegularSuppliesNeed> query = _context.RegularSuppliesNeeds
                     .Include(r => r.Case)
+                    .ThenInclude(c => c!.Worker) // 加入 Worker 資訊
                     .Include(r => r.Supply)
-                    .ThenInclude(s => s!.SupplyCategory)
+                    .ThenInclude(s => s!.SupplyCategory);
+
+                // 根據傳入的 workerId 進行權限過濾
+                if (workerId.HasValue)
+                {
+                    query = query.Where(r => r.Case != null && r.Case.WorkerId == workerId.Value);
+                }
+
+                var needs = await query
                     .Select(r => new
                     {
                         needId = r.RegularNeedId,
                         caseId = r.CaseId,
                         caseName = r.Case != null ? r.Case.Name : "未知",
+                        assignedWorkerId = r.Case != null ? r.Case.WorkerId : null, // 管理社工ID
+                        assignedWorkerName = r.Case != null && r.Case.Worker != null ? r.Case.Worker.Name : "未分配", // 管理社工姓名
                         supplyId = r.SupplyId,
                         itemName = r.Supply != null ? r.Supply.SupplyName : "未知",
                         category = r.Supply != null && r.Supply.SupplyCategory != null ? r.Supply.SupplyCategory.SupplyCategoryName : "未分類",
