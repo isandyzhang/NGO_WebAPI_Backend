@@ -15,13 +15,24 @@ public class RegularDistributionBatchController : ControllerBase
         _context = context;
     }
 
-    // 获取所有分发批次
+    // 获取所有分发批次 (根據登入者權限過濾)
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> GetDistributionBatches()
+    public async Task<ActionResult<IEnumerable<object>>> GetDistributionBatches([FromQuery] int? workerId = null)
     {
         try
         {
-            var batches = await _context.RegularDistributionBatches
+            IQueryable<RegularDistributionBatch> query = _context.RegularDistributionBatches;
+
+            // 根據workerId過濾 - 員工只能看到包含自己管理案例的分配批次
+            if (workerId.HasValue)
+            {
+                query = query.Where(b => _context.RegularSuppliesNeeds
+                    .Any(n => n.BatchId == b.DistributionBatchId && 
+                              n.Case != null && 
+                              n.Case.WorkerId == workerId.Value));
+            }
+
+            var batches = await query
                 .OrderByDescending(b => b.DistributionDate)
                 .ToListAsync();
 
