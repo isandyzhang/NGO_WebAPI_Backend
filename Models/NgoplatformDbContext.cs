@@ -211,19 +211,27 @@ public partial class NgoplatformDbContext : DbContext
         {
             entity.HasKey(e => e.EmergencyNeedId).HasName("PK__Emergenc__D9A4C6FA1D1F8990");
 
-            entity.Property(e => e.PickupDate).HasColumnType("datetime");
+            entity.Property(e => e.SupplyName)
+                .HasMaxLength(200)
+                .IsUnicode(true);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .IsUnicode(false);
-            entity.Property(e => e.VisitDate).HasColumnType("datetime");
+            entity.Property(e => e.Priority)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .IsUnicode(true);
+            entity.Property(e => e.ImageUrl)
+                .HasMaxLength(500)
+                .IsUnicode(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime2");
 
             entity.HasOne(d => d.Case).WithMany(p => p.EmergencySupplyNeeds)
                 .HasForeignKey(d => d.CaseId)
                 .HasConstraintName("FK__Emergency__CaseI__0C85DE4D");
-
-            entity.HasOne(d => d.Supply).WithMany(p => p.EmergencySupplyNeeds)
-                .HasForeignKey(d => d.SupplyId)
-                .HasConstraintName("FK__Emergency__Suppl__0D7A0286");
 
             entity.HasOne(d => d.Worker).WithMany(p => p.EmergencySupplyNeeds)
                 .HasForeignKey(d => d.WorkerId)
