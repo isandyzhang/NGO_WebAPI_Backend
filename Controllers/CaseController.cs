@@ -109,16 +109,18 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
-        /// 獲取所有個案列表（支援分頁）
-        /// HTTP GET: /api/case?page=1&pageSize=10
+        /// 獲取個案列表（支援分頁和WorkerId過濾）
+        /// HTTP GET: /api/case?page=1&pageSize=10&workerId=1
         /// </summary>
         /// <param name="page">頁碼（預設 1）</param>
         /// <param name="pageSize">每頁數量（預設 10）</param>
+        /// <param name="workerId">工作人員ID（可選，用於過濾）</param>
         /// <returns>分頁後的個案列表</returns>
         [HttpGet]  // 處理 GET 請求
         public async Task<ActionResult<PagedResponse<CaseResponse>>> GetAllCases(
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10)
+            [FromQuery] int pageSize = 10,
+            [FromQuery] int? workerId = null)
         {
             try
             {
@@ -131,7 +133,16 @@ namespace NGO_WebAPI_Backend.Controllers
                 // 建立查詢基礎
                 var queryable = _context.Cases
                     .Include(c => c.Worker)  // 包含負責工作人員資料
-                    .OrderByDescending(c => c.CreatedAt);  // 按建立時間降序排列
+                    .AsQueryable();
+
+                // 如果提供了 workerId，則按 WorkerId 過濾
+                if (workerId.HasValue)
+                {
+                    queryable = queryable.Where(c => c.WorkerId == workerId.Value);
+                    _logger.LogInformation($"按 WorkerId {workerId.Value} 過濾個案");
+                }
+
+                queryable = queryable.OrderByDescending(c => c.CreatedAt);  // 按建立時間降序排列
 
                 // 計算總數量
                 var totalCount = await queryable.CountAsync();
@@ -248,18 +259,20 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
-        /// 搜尋個案（支援分頁）
-        /// HTTP GET: /api/case/search?query=關鍵字&page=1&pageSize=10
+        /// 搜尋個案（支援分頁和WorkerId過濾）
+        /// HTTP GET: /api/case/search?query=關鍵字&page=1&pageSize=10&workerId=1
         /// </summary>
         /// <param name="query">搜尋關鍵字</param>
         /// <param name="page">頁碼（預設 1）</param>
         /// <param name="pageSize">每頁數量（預設 10）</param>
+        /// <param name="workerId">工作人員ID（可選，用於過濾）</param>
         /// <returns>搜尋結果和分頁資訊</returns>
         [HttpGet("search")]  // 處理 GET 請求：/api/case/search
         public async Task<ActionResult<PagedResponse<CaseResponse>>> SearchCases(
             [FromQuery] string? query,  // 從 URL 查詢參數取得
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10)
+            [FromQuery] int pageSize = 10,
+            [FromQuery] int? workerId = null)
         {
             try
             {
@@ -273,6 +286,13 @@ namespace NGO_WebAPI_Backend.Controllers
                 var queryable = _context.Cases
                     .Include(c => c.Worker)
                     .AsQueryable();  // 轉換為可查詢物件
+
+                // 如果提供了 workerId，則按 WorkerId 過濾
+                if (workerId.HasValue)
+                {
+                    queryable = queryable.Where(c => c.WorkerId == workerId.Value);
+                    _logger.LogInformation($"按 WorkerId {workerId.Value} 過濾搜尋結果");
+                }
 
                 // 如果有搜尋關鍵字，進行模糊搜尋
                 if (!string.IsNullOrWhiteSpace(query))
@@ -384,7 +404,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     Phone = request.Phone,
                     IdentityNumber = request.IdentityNumber,
                     Birthday = request.Birthday.HasValue ? DateOnly.FromDateTime(request.Birthday.Value) : null,
-                    WorkerId = 1,  // 預設分配給第一個工作人員
+                    WorkerId = request.WorkerId ?? 1,  // 使用請求中的WorkerId，若無則預設為1
                     Description = request.Description,
                     CreatedAt = DateTime.Now,  // 設定建立時間為當前時間
                     Status = "active",  // 新個案預設為啟用狀態
@@ -549,6 +569,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public string Phone { get; set; } = string.Empty;          // 聯絡電話（必填）
         public string IdentityNumber { get; set; } = string.Empty; // 身分證字號（必填）
         public DateTime? Birthday { get; set; }                    // 生日（可選）
+        public int? WorkerId { get; set; }                         // 負責工作人員ID（可選）
         // Address 欄位已移除，現在由 City + District + DetailAddress 組成
         public string? Description { get; set; }                   // 描述（可選）
         public string? Email { get; set; }                         // 電子郵件（可選）
