@@ -27,12 +27,29 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogInformation("開始獲取緊急物資需求列表");
 
-                var emergencyNeeds = await _context.EmergencySupplyNeeds
-                    .Include(e => e.Case)
-                    .Include(e => e.Worker)
+                // 完全避免關聯查詢，使用投影來避免 SupplyId 問題
+                var emergencyNeedsData = await _context.EmergencySupplyNeeds
+                    .AsNoTracking()
+                    .Select(e => new
+                    {
+                        e.EmergencyNeedId,
+                        e.CaseId,
+                        e.WorkerId,
+                        e.Quantity,
+                        e.CollectedQuantity,
+                        e.SupplyName,
+                        e.Status,
+                        e.Priority,
+                        e.Description,
+                        e.ImageUrl,
+                        e.CreatedDate,
+                        e.UpdatedDate,
+                        CaseName = e.Case != null ? e.Case.Name : null,
+                        WorkerName = e.Worker != null ? e.Worker.Name : null
+                    })
                     .ToListAsync();
 
-                var response = emergencyNeeds.Select(e => new EmergencySupplyNeedResponse
+                var response = emergencyNeedsData.Select(e => new EmergencySupplyNeedResponse
                 {
                     EmergencyNeedId = e.EmergencyNeedId,
                     ItemName = e.SupplyName ?? "未知物品",
@@ -40,13 +57,13 @@ namespace NGO_WebAPI_Backend.Controllers
                     Quantity = e.Quantity ?? 0,
                     CollectedQuantity = e.CollectedQuantity ?? 0,
                     Unit = "個",
-                    RequestedBy = e.Worker?.Name ?? "未知申請人",
+                    RequestedBy = e.WorkerName ?? "未知申請人",
                     RequestDate = e.CreatedDate ?? DateTime.Now,
                     Status = e.Status ?? "pending",
                     Priority = e.Priority ?? "medium",
                     Description = e.Description ?? "",
                     ImageUrl = e.ImageUrl ?? "",
-                    CaseName = e.Case?.Name ?? "未知個案",
+                    CaseName = e.CaseName ?? "未知個案",
                     CaseId = e.CaseId?.ToString() ?? "未知",
                     Matched = e.Status == "approved",
                     EmergencyReason = e.Description ?? "緊急物資需求"
@@ -72,7 +89,25 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogInformation("開始獲取緊急物資需求統計");
 
-                var emergencyNeeds = await _context.EmergencySupplyNeeds.ToListAsync();
+                // 完全避免關聯查詢，只取基本資料
+                var emergencyNeeds = await _context.EmergencySupplyNeeds
+                    .AsNoTracking()
+                    .Select(e => new
+                    {
+                        e.EmergencyNeedId,
+                        e.CaseId,
+                        e.WorkerId,
+                        e.Quantity,
+                        e.CollectedQuantity,
+                        e.SupplyName,
+                        e.Status,
+                        e.Priority,
+                        e.Description,
+                        e.ImageUrl,
+                        e.CreatedDate,
+                        e.UpdatedDate
+                    })
+                    .ToListAsync();
 
                 var statistics = new EmergencySupplyNeedStatistics
                 {
