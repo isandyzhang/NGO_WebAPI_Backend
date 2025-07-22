@@ -23,8 +23,6 @@ public partial class Supply
 
     public virtual ICollection<CaseOrder> CaseOrders { get; set; } = new List<CaseOrder>();
 
-    public virtual ICollection<EmergencySupplyNeed> EmergencySupplyNeeds { get; set; } = new List<EmergencySupplyNeed>();
-
     public virtual ICollection<RegularSuppliesNeed> RegularSuppliesNeeds { get; set; } = new List<RegularSuppliesNeed>();
 
     public virtual SupplyCategory? SupplyCategory { get; set; }

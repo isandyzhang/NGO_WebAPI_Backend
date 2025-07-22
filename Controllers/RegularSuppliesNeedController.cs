@@ -442,11 +442,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     .Select(r => new { r.RegularNeedId, r.Status, r.BatchId })
                     .ToListAsync();
 
-                Console.WriteLine($"查詢BatchId {batchId} 的記錄數: {allBatchRecords.Count}");
-                foreach (var record in allBatchRecords)
-                {
-                    Console.WriteLine($"記錄ID: {record.RegularNeedId}, 狀態: '{record.Status}', BatchId: {record.BatchId}");
-                }
+
 
                 var batchDetails = await _context.RegularSuppliesNeeds
                     .Include(r => r.Case)
@@ -467,12 +463,10 @@ namespace NGO_WebAPI_Backend.Controllers
                     })
                     .ToListAsync();
 
-                Console.WriteLine($"返回的詳情記錄數: {batchDetails.Count}");
                 return Ok(batchDetails);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"查詢批次詳情時發生錯誤: {ex.Message}");
                 return StatusCode(500, new { message = "取得批次分發詳情失敗", error = ex.Message });
             }
         }

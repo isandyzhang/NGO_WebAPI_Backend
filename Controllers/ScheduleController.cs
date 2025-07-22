@@ -155,29 +155,7 @@ namespace NGO_WebAPI_Backend.Controllers
 
 
 
-        /// <summary>
-        /// 測試用：列出所有行事曆活動（不篩選 WorkerId）
-        /// HTTP GET: /api/schedule/test
-        /// </summary>
-        /// <returns>所有活動的清單</returns>
-        [HttpGet("test")]
-        public async Task<ActionResult<IEnumerable<ScheduleDto>>> GetAllSchedulesForTest()
-        {
-            var schedules = await _context.Schedules
-    .OrderByDescending(s => s.StartTime)
-    .Select(s => new ScheduleDto
-    {
-        WorkerId = s.WorkerId,
-        EventType = s.EventType,
-        EventName = s.EventName,
-        Description = s.Description,
-        StartTime = s.StartTime,
-        EndTime = s.EndTime
-    })
-    .ToListAsync();
 
-            return Ok(schedules);
-        }
 
         // ==================== API 請求/回應模型 ====================
 
