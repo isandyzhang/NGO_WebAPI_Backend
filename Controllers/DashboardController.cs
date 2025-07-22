@@ -40,10 +40,10 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
-        /// 獲取Dashboard統計數據
+        /// 獲取Dashboard統計數據（支援WorkerId過濾）
         /// </summary>
         [HttpGet("stats")]
-        public async Task<ActionResult<DashboardStats>> GetDashboardStats()
+        public async Task<ActionResult<DashboardStats>> GetDashboardStats([FromQuery] int? workerId = null)
         {
             try
             {
