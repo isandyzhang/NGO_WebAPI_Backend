@@ -21,7 +21,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// 獲取Dashboard基本資訊 (默認路由)
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult> GetDashboard()
+        public ActionResult GetDashboard()
         {
             try
             {

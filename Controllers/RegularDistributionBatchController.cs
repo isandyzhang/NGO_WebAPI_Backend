@@ -225,12 +225,7 @@ public class RegularDistributionBatchController : ControllerBase
         }
     }
 
-    // 測試端點
-    [HttpGet("test")]
-    public ActionResult<string> Test()
-    {
-        return Ok("RegularDistributionBatch Controller 正常運作!");
-    }
+
 }
 
 // 請求模型

@@ -85,7 +85,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     {
                         WorkerId = worker.WorkerId,
                         Email = worker.Email ?? string.Empty,
-                        Name = worker.Name ?? string.Empty
+                        Name = worker.Name ?? string.Empty,
+                        Role = worker.Role ?? string.Empty
                     }
                 });
             }
@@ -101,7 +102,76 @@ namespace NGO_WebAPI_Backend.Controllers
         }
 
         /// <summary>
-        /// 取得所有工作人員列表（測試用）
+        /// 驗證Email是否存在
+        /// </summary>
+        /// <param name="request">Email驗證請求</param>
+        /// <returns>驗證結果</returns>
+        [HttpPost("verify-email")]
+        public async Task<ActionResult<EmailVerificationResponse>> VerifyEmail([FromBody] EmailVerificationRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("開始驗證Email是否存在: {Email}", request.Email);
+
+                // 驗證輸入資料
+                if (string.IsNullOrEmpty(request.Email))
+                {
+                    _logger.LogWarning("Email驗證失敗：Email為空");
+                    return Ok(new EmailVerificationResponse
+                    {
+                        Success = false,
+                        Message = "請輸入Email地址"
+                    });
+                }
+
+                // 簡單的Email格式驗證
+                var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^\s@]+@[^\s@]+\.[^\s@]+$");
+                if (!emailRegex.IsMatch(request.Email))
+                {
+                    _logger.LogWarning("Email驗證失敗：格式不正確 {Email}", request.Email);
+                    return Ok(new EmailVerificationResponse
+                    {
+                        Success = false,
+                        Message = "請輸入有效的Email地址"
+                    });
+                }
+
+                // 查詢工作人員是否存在
+                var worker = await _context.Workers
+                    .Where(w => w.Email == request.Email)
+                    .FirstOrDefaultAsync();
+
+                if (worker == null)
+                {
+                    _logger.LogWarning("Email驗證失敗：找不到該Email的工作人員 {Email}", request.Email);
+                    return Ok(new EmailVerificationResponse
+                    {
+                        Success = false,
+                        Message = "此Email尚未註冊，請聯絡管理員"
+                    });
+                }
+
+                // Email驗證成功
+                _logger.LogInformation("Email驗證成功 {Email}", request.Email);
+                return Ok(new EmailVerificationResponse
+                {
+                    Success = true,
+                    Message = "Email驗證成功，請輸入密碼"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Email驗證過程中發生錯誤");
+                return Ok(new EmailVerificationResponse
+                {
+                    Success = false,
+                    Message = "驗證過程中發生錯誤，請稍後再試"
+                });
+            }
+        }
+
+        /// <summary>
+        /// 取得所有工作人員列表
         /// </summary>
         /// <returns>工作人員列表</returns>
         [HttpGet("workers")]
@@ -114,7 +184,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     {
                         WorkerId = w.WorkerId,
                         Email = w.Email ?? string.Empty,
-                        Name = w.Name ?? string.Empty
+                        Name = w.Name ?? string.Empty,
+                        Role = w.Role ?? string.Empty
                     })
                     .ToListAsync();
 
@@ -127,33 +198,7 @@ namespace NGO_WebAPI_Backend.Controllers
             }
         }
 
-        /// <summary>
-        /// 取得工作人員詳細資料（包含密碼，僅用於測試）
-        /// </summary>
-        /// <returns>工作人員詳細資料</returns>
-        [HttpGet("workers-detail")]
-        public async Task<ActionResult<IEnumerable<object>>> GetWorkersDetail()
-        {
-            try
-            {
-                var workers = await _context.Workers
-                    .Select(w => new
-                    {
-                        w.WorkerId,
-                        w.Email,
-                        w.Password,
-                        w.Name
-                    })
-                    .ToListAsync();
 
-                return Ok(workers);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "取得工作人員詳細資料時發生錯誤");
-                return StatusCode(500, "取得工作人員詳細資料時發生錯誤");
-            }
-        }
     }
 
     /// <summary>
@@ -183,5 +228,23 @@ namespace NGO_WebAPI_Backend.Controllers
         public int WorkerId { get; set; }
         public string Email { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Email驗證請求模型
+    /// </summary>
+    public class EmailVerificationRequest
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Email驗證回應模型
+    /// </summary>
+    public class EmailVerificationResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 } 

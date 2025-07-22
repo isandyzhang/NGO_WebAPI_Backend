@@ -15,6 +15,10 @@ public partial class UserOrderDetail
 
     public decimal? UnitPrice { get; set; }
 
+    public string? OrderSource { get; set; }
+
+    public int? EmergencyNeedId { get; set; }
+
     public virtual Supply? Supply { get; set; }
 
     public virtual UserOrder? UserOrder { get; set; }
