@@ -116,7 +116,7 @@ namespace NGO_WebAPI_Backend.Controllers
         /// <param name="loginRequest">登入請求</param>
         /// <returns>登入結果</returns>
         [HttpPost("login")]
-        public async Task<ActionResult<object>> Login([FromBody] LoginRequest loginRequest)
+        public async Task<ActionResult<object>> Login([FromBody] TestLoginRequest loginRequest)
         {
             try
             {
@@ -165,5 +165,61 @@ namespace NGO_WebAPI_Backend.Controllers
                 return StatusCode(500, new { success = false, message = "登入過程發生錯誤", error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// 測試端點 - 檢查工作人員密碼（僅供開發測試）
+        /// </summary>
+        [HttpPost("test-password")]
+        public async Task<ActionResult<object>> TestPassword([FromBody] TestLoginRequest loginRequest)
+        {
+            try
+            {
+                var worker = await _context.Workers
+                    .Where(w => w.Email == loginRequest.Email)
+                    .Select(w => new
+                    {
+                        workerId = w.WorkerId,
+                        email = w.Email,
+                        name = w.Name,
+                        role = w.Role ?? "staff",
+                        password = w.Password,
+                        hasPassword = !string.IsNullOrEmpty(w.Password)
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (worker == null)
+                {
+                    return NotFound(new { success = false, message = "找不到對應的工作人員帳號" });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    worker = new
+                    {
+                        worker.workerId,
+                        worker.email,
+                        worker.name,
+                        worker.role,
+                        worker.hasPassword,
+                        passwordMatch = worker.password == loginRequest.Password,
+                        storedPassword = worker.password // 注意：生產環境中不應返回密碼
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "測試過程發生錯誤", error = ex.Message });
+            }
+        }
+    }
+
+    /// <summary>
+    /// 測試登入請求模型
+    /// </summary>
+    public class TestLoginRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }
