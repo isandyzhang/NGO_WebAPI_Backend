@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,8 +24,6 @@ public partial class NgoplatformDbContext : DbContext
     public virtual DbSet<CaseLogin> CaseLogins { get; set; }
 
     public virtual DbSet<CaseOrder> CaseOrders { get; set; }
-
-    public virtual DbSet<EmergencySupplyMatch> EmergencySupplyMatches { get; set; }
 
     public virtual DbSet<EmergencySupplyNeed> EmergencySupplyNeeds { get; set; }
 
@@ -61,10 +59,11 @@ public partial class NgoplatformDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // 連接字符串通過依賴注入配置，此處僅用於遷移時的回退
+        // 只有在沒有配置選項時才使用預設連接字串
         if (!optionsBuilder.IsConfigured)
         {
-            optionsBuilder.UseSqlServer("Name=DefaultConnection");
+            // 這裡應該從配置中讀取，但為了簡化，暫時保留
+            // 在生產環境中應該使用 appsettings.json 中的連接字串
         }
     }
 
@@ -76,7 +75,11 @@ public partial class NgoplatformDbContext : DbContext
         {
             entity.HasKey(e => e.ActivityId).HasName("PK__Activiti__45F4A7914643EE44");
 
-            entity.ToTable(tb => tb.HasTrigger("tr_CheckFullOnRegistration"));
+            entity.ToTable(tb =>
+                {
+                    tb.HasTrigger("tr_CheckFullOnRegistration");
+                    tb.HasTrigger("trg_CheckParticipants");
+                });
 
             entity.Property(e => e.ActivityName)
                 .HasMaxLength(100)
@@ -141,6 +144,8 @@ public partial class NgoplatformDbContext : DbContext
         {
             entity.HasKey(e => e.RegistrationId).HasName("PK__CaseActi__6EF58810AFB8FC95");
 
+            entity.ToTable(tb => tb.HasTrigger("TR_CaseActivityRegistrations_NoDuplicates"));
+
             entity.Property(e => e.RegisterTime).HasColumnType("datetime");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
@@ -191,43 +196,36 @@ public partial class NgoplatformDbContext : DbContext
                 .HasConstraintName("FK__CaseOrder__Suppl__08B54D69");
         });
 
-        modelBuilder.Entity<EmergencySupplyMatch>(entity =>
-        {
-            entity.HasKey(e => e.EmergencyMatchId).HasName("PK__Emergenc__9E89AB71B11CAC01");
-
-            entity.Property(e => e.MatchDate).HasColumnType("datetime");
-            entity.Property(e => e.Note).HasColumnType("text");
-
-            entity.HasOne(d => d.EmergencyNeed).WithMany(p => p.EmergencySupplyMatches)
-                .HasForeignKey(d => d.EmergencyNeedId)
-                .HasConstraintName("FK__Emergency__Emerg__0A9D95DB");
-
-            entity.HasOne(d => d.MatchedByWorker).WithMany(p => p.EmergencySupplyMatches)
-                .HasForeignKey(d => d.MatchedByWorkerId)
-                .HasConstraintName("FK__Emergency__Match__0B91BA14");
-        });
-
         modelBuilder.Entity<EmergencySupplyNeed>(entity =>
         {
-            entity.HasKey(e => e.EmergencyNeedId).HasName("PK__Emergenc__D9A4C6FA1D1F8990");
+            entity.HasKey(e => e.EmergencyNeedId).HasName("PK__Emergenc__D9A4C6FAD3FB3527");
 
-            entity.Property(e => e.PickupDate).HasColumnType("datetime");
+            entity.ToTable(tb => tb.HasTrigger("TR_EmergencySupplyNeeds_UpdateDate"));
+
+            entity.Property(e => e.CollectedQuantity).HasDefaultValue(0);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+            entity.Property(e => e.Priority)
+                .HasMaxLength(20)
+                .HasDefaultValue("Normal");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
-                .IsUnicode(false);
-            entity.Property(e => e.VisitDate).HasColumnType("datetime");
+                .HasDefaultValue("Fundraising");
+            entity.Property(e => e.SupplyName)
+                .HasMaxLength(200)
+                .HasColumnName("SupplyName");
+            entity.Property(e => e.UpdatedDate).HasDefaultValueSql("(getdate())");
 
             entity.HasOne(d => d.Case).WithMany(p => p.EmergencySupplyNeeds)
                 .HasForeignKey(d => d.CaseId)
-                .HasConstraintName("FK__Emergency__CaseI__0C85DE4D");
-
-            entity.HasOne(d => d.Supply).WithMany(p => p.EmergencySupplyNeeds)
-                .HasForeignKey(d => d.SupplyId)
-                .HasConstraintName("FK__Emergency__Suppl__0D7A0286");
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_EmergencySupplyNeeds_Case");
 
             entity.HasOne(d => d.Worker).WithMany(p => p.EmergencySupplyNeeds)
                 .HasForeignKey(d => d.WorkerId)
-                .HasConstraintName("FK__Emergency__Worke__0E6E26BF");
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_EmergencySupplyNeeds_Worker");
         });
 
         modelBuilder.Entity<News>(entity =>
@@ -396,6 +394,8 @@ public partial class NgoplatformDbContext : DbContext
         {
             entity.HasKey(e => e.RegistrationId).HasName("PK__UserActi__6EF58810AB33EBAD");
 
+            entity.ToTable(tb => tb.HasTrigger("TR_UserActivityRegistrations_NoDuplicates"));
+
             entity.Property(e => e.RegisterTime).HasColumnType("datetime");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
@@ -418,6 +418,8 @@ public partial class NgoplatformDbContext : DbContext
 
             entity.Property(e => e.OrderDate).HasColumnType("datetime");
             entity.Property(e => e.OrderNumber).HasMaxLength(20);
+            entity.Property(e => e.OrderSource).HasMaxLength(50);
+            entity.Property(e => e.PaymentMethod).HasMaxLength(50);
             entity.Property(e => e.PaymentStatus)
                 .HasMaxLength(50)
                 .IsUnicode(false);
@@ -432,6 +434,7 @@ public partial class NgoplatformDbContext : DbContext
         {
             entity.HasKey(e => e.DetailId).HasName("PK__UserOrde__135C316DFCE52535");
 
+            entity.Property(e => e.OrderSource).HasMaxLength(50);
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(10, 2)");
 
             entity.HasOne(d => d.Supply).WithMany(p => p.UserOrderDetails)

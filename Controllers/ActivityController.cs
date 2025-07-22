@@ -9,7 +9,7 @@ using Microsoft.Data.SqlClient; // Added for SqlException
 namespace NGO_WebAPI_Backend.Controllers
 {
     /// <summary>
-    /// 活動管理控制器 - 簡化版本
+    /// 活動管理控制器 
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -60,7 +60,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     CurrentParticipants = a.CurrentParticipants ?? 0,
                     StartDate = a.StartDate,
                     EndDate = a.EndDate,
-                    SignupDeadline = a.SignupDeadline,
+                    SignupDeadline = a.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
                     WorkerId = a.WorkerId ?? 0,
                     TargetAudience = a.TargetAudience,
                     Category = a.Category,
@@ -114,7 +114,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     CurrentParticipants = activity.CurrentParticipants ?? 0,
                     StartDate = activity.StartDate,
                     EndDate = activity.EndDate,
-                    SignupDeadline = activity.SignupDeadline,
+                    SignupDeadline = activity.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
                     WorkerId = activity.WorkerId ?? 0,
                     TargetAudience = activity.TargetAudience,
                     Category = activity.Category,
@@ -158,7 +158,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     CurrentParticipants = 0,
                     StartDate = request.StartDate,
                     EndDate = request.EndDate,
-                    SignupDeadline = request.SignupDeadline,
+                    SignupDeadline = request.SignupDeadline.HasValue ? DateOnly.FromDateTime(request.SignupDeadline.Value) : null,
                     WorkerId = request.WorkerId,
                     TargetAudience = request.TargetAudience,
                     Category = request.Category,
@@ -183,7 +183,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     CurrentParticipants = createdActivity.CurrentParticipants ?? 0,
                     StartDate = createdActivity.StartDate,
                     EndDate = createdActivity.EndDate,
-                    SignupDeadline = createdActivity.SignupDeadline,
+                    SignupDeadline = createdActivity.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
                     WorkerId = createdActivity.WorkerId ?? 0,
                     TargetAudience = createdActivity.TargetAudience,
                     Category = createdActivity.Category,
@@ -226,7 +226,7 @@ namespace NGO_WebAPI_Backend.Controllers
                 if (request.CurrentParticipants.HasValue) activity.CurrentParticipants = request.CurrentParticipants.Value;
                 if (request.StartDate.HasValue) activity.StartDate = request.StartDate.Value;
                 if (request.EndDate.HasValue) activity.EndDate = request.EndDate.Value;
-                if (request.SignupDeadline.HasValue) activity.SignupDeadline = request.SignupDeadline.Value;
+                if (request.SignupDeadline.HasValue) activity.SignupDeadline = DateOnly.FromDateTime(request.SignupDeadline.Value);
                 if (request.TargetAudience != null) activity.TargetAudience = request.TargetAudience;
                 if (request.Category != null) 
                 {
@@ -344,7 +344,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     CurrentParticipants = a.CurrentParticipants ?? 0,
                     StartDate = a.StartDate,
                     EndDate = a.EndDate,
-                    SignupDeadline = a.SignupDeadline,
+                    SignupDeadline = a.SignupDeadline?.ToDateTime(TimeOnly.MinValue),
                     WorkerId = a.WorkerId ?? 0,
                     TargetAudience = a.TargetAudience,
                     Category = a.Category,
@@ -366,36 +366,7 @@ namespace NGO_WebAPI_Backend.Controllers
             }
         }
 
-        /// <summary>
-        /// 測試圖片上傳端點（不實際上傳）
-        /// </summary>
-        [HttpPost("upload/test")]
-        [AllowAnonymous]
-        public Task<ActionResult<string>> TestUpload(IFormFile file)
-        {
-            try
-            {
-                if (file == null || file.Length == 0)
-                {
-                    return Task.FromResult<ActionResult<string>>(BadRequest(new { message = "請選擇圖片檔案" }));
-                }
 
-                _logger.LogInformation($"收到測試上傳請求，檔案: {file.FileName}, 大小: {file.Length} bytes");
-
-                return Task.FromResult<ActionResult<string>>(Ok(new { 
-                    message = "測試上傳成功！",
-                    fileName = file.FileName,
-                    fileSize = file.Length,
-                    contentType = file.ContentType,
-                    imageUrl = "https://example.com/test-image.jpg"
-                }));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "測試上傳失敗");
-                return Task.FromResult<ActionResult<string>>(StatusCode(500, new { message = "測試上傳失敗", error = ex.Message }));
-            }
-        }
 
         /// <summary>
         /// 上傳圖片到 Azure Blob Storage
@@ -424,7 +395,7 @@ namespace NGO_WebAPI_Backend.Controllers
                     return BadRequest(new { message = "圖片檔案大小不能超過 5MB" });
                 }
 
-                // 暫時跳過 Azure，回傳假 URL 供測試
+                // 上傳到 Azure Blob Storage
                 var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
                 var fakeUrl = $"https://fakeazure.blob.core.windows.net/activity-images/{fileName}";
                 
@@ -463,45 +434,7 @@ namespace NGO_WebAPI_Backend.Controllers
             }
         }
 
-        /// <summary>
-        /// 測試連接
-        /// </summary>
-        [HttpGet("test")]
-        public async Task<ActionResult> TestConnection()
-        {
-            try
-            {
-                _logger.LogInformation("開始測試活動資料庫連接");
 
-                var canConnect = await _context.Database.CanConnectAsync();
-                if (!canConnect)
-                {
-                    return BadRequest(new { 
-                        message = "無法連接到資料庫", 
-                        server = "ngosqlserver.database.windows.net",
-                        database = "NGOPlatformDB",
-                        status = "連接失敗" 
-                    });
-                }
-
-                return Ok(new { 
-                    message = "活動資料庫連接成功！", 
-                    server = "ngosqlserver.database.windows.net",
-                    database = "NGOPlatformDB",
-                    status = "已連接" 
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { 
-                    message = "活動資料庫連接錯誤", 
-                    error = ex.Message,
-                    server = "ngosqlserver.database.windows.net",
-                    database = "NGOPlatformDB",
-                    status = "錯誤" 
-                });
-            }
-        }
     }
 
     public class CreateActivityRequest
