@@ -13,11 +13,11 @@ public partial class Worker
 
     public string? Name { get; set; }
 
+    public string? Role { get; set; }
+
     public virtual ICollection<Activity> Activities { get; set; } = new List<Activity>();
 
     public virtual ICollection<Case> Cases { get; set; } = new List<Case>();
-
-    public virtual ICollection<EmergencySupplyMatch> EmergencySupplyMatches { get; set; } = new List<EmergencySupplyMatch>();
 
     public virtual ICollection<EmergencySupplyNeed> EmergencySupplyNeeds { get; set; } = new List<EmergencySupplyNeed>();
 
