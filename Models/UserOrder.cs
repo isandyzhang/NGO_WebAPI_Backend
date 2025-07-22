@@ -17,6 +17,12 @@ public partial class UserOrder
 
     public string OrderNumber { get; set; } = null!;
 
+    public string? PaymentMethod { get; set; }
+
+    public string? OrderSource { get; set; }
+
+    public int? EmergencyNeedId { get; set; }
+
     public virtual User? User { get; set; }
 
     public virtual ICollection<UserOrderDetail> UserOrderDetails { get; set; } = new List<UserOrderDetail>();

@@ -15,7 +15,7 @@ public partial class Activity
 
     public string? Location { get; set; }
 
-    public int? MaxParticipants { get; set; }
+     public int? MaxParticipants { get; set; }
 
     public int? CurrentParticipants { get; set; }
 
@@ -23,7 +23,7 @@ public partial class Activity
 
     public DateTime? EndDate { get; set; }
 
-    public DateTime? SignupDeadline { get; set; }
+    public DateOnly? SignupDeadline { get; set; }
 
     public int? WorkerId { get; set; }
 

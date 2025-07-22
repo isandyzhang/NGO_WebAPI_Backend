@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 namespace NGO_WebAPI_Backend.Controllers
 {
@@ -29,15 +32,20 @@ namespace NGO_WebAPI_Backend.Controllers
         // 日誌記錄器 - 用來記錄系統日誌
         private readonly ILogger<CaseController> _logger;
 
+        // 設定 - 用來存取應用程式設定
+        private readonly IConfiguration configuration;
+
         /// <summary>
         /// 建構函式 - 依賴注入
         /// </summary>
         /// <param name="context">資料庫上下文</param>
         /// <param name="logger">日誌記錄器</param>
-        public CaseController(NgoplatformDbContext context, ILogger<CaseController> logger)
+        /// <param name="configuration">設定</param>
+        public CaseController(NgoplatformDbContext context, ILogger<CaseController> logger, IConfiguration config)
         {
             _context = context;  // 注入資料庫上下文
             _logger = logger;    // 注入日誌記錄器
+            configuration = config; // 注入設定
         }
 
         /// <summary>
@@ -363,6 +371,87 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogError(ex, "搜尋個案時發生錯誤");
                 return StatusCode(500, new { message = "搜尋個案失敗" });
+            }
+        }
+
+        /// <summary>
+        /// 上傳個案圖片到 Azure Blob Storage
+        /// </summary>
+        [HttpPost("upload/profile-image")]
+        [AllowAnonymous]
+        public async Task<ActionResult<string>> UploadProfileImage(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "請選擇圖片檔案" });
+                }
+
+                // 驗證檔案類型
+                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif" };
+                if (!allowedTypes.Contains(file.ContentType.ToLower()))
+                {
+                    return BadRequest(new { message = "只支援 JPG、PNG、GIF 格式的圖片" });
+                }
+
+                // 驗證檔案大小 (5MB)
+                if (file.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest(new { message = "圖片檔案大小不能超過 5MB" });
+                }
+
+                // 從配置中獲取 Azure Storage 設定
+                var connectionString = configuration.GetConnectionString("AzureStorage");
+                var containerName = configuration.GetValue<string>("AzureStorage:ContainerName");
+                var casePhotosFolder = configuration.GetValue<string>("AzureStorage:CasePhotosFolder");
+
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    return StatusCode(500, new { message = "Azure Storage 連接字串未配置" });
+                }
+
+                // 建立 Azure Blob Service Client
+                var blobServiceClient = new BlobServiceClient(connectionString);
+                var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+
+                // 確保容器存在
+                await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+
+                // 生成唯一的檔案名稱
+                var fileExtension = Path.GetExtension(file.FileName).ToLower();
+                var fileName = $"{Guid.NewGuid()}{fileExtension}";
+                var blobName = $"{casePhotosFolder}{fileName}";
+
+                // 獲取 Blob Client
+                var blobClient = containerClient.GetBlobClient(blobName);
+
+                // 設定 Blob 的 Content-Type
+                var blobHttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = file.ContentType
+                };
+
+                // 上傳檔案到 Azure Blob Storage
+                using (var stream = file.OpenReadStream())
+                {
+                    await blobClient.UploadAsync(stream, new BlobUploadOptions
+                    {
+                        HttpHeaders = blobHttpHeaders
+                    });
+                }
+
+                // 回傳 Azure Blob URL
+                var imageUrl = blobClient.Uri.ToString();
+                
+                _logger.LogInformation($"個案圖片上傳成功: {fileName}, URL: {imageUrl}");
+
+                return Ok(new { imageUrl = imageUrl });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "個案圖片上傳失敗");
+                return StatusCode(500, new { message = "個案圖片上傳失敗", error = ex.Message });
             }
         }
 
