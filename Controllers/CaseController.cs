@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.Data.SqlClient;
 
 namespace NGO_WebAPI_Backend.Controllers
 {
@@ -180,7 +181,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     City = c.City,
                     District = c.District,
                     DetailAddress = c.DetailAddress,
-                    WorkerName = c.Worker?.Name  // 安全存取工作人員姓名
+                    WorkerName = c.Worker?.Name,  // 安全存取工作人員姓名
+                    SpeechToTextAudioUrl = c.SpeechToTextAudioUrl
                 }).ToList();
 
                 // 計算分頁資訊
@@ -253,7 +255,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     City = caseItem.City,
                     District = caseItem.District,
                     DetailAddress = caseItem.DetailAddress,
-                    WorkerName = caseItem.Worker?.Name  // 使用 null 條件運算子
+                    WorkerName = caseItem.Worker?.Name,  // 使用 null 條件運算子
+                    SpeechToTextAudioUrl = caseItem.SpeechToTextAudioUrl
                 };
 
                 _logger.LogInformation($"成功獲取個案 ID: {id}");
@@ -345,7 +348,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     City = c.City,
                     District = c.District,
                     DetailAddress = c.DetailAddress,
-                    WorkerName = c.Worker?.Name
+                    WorkerName = c.Worker?.Name,
+                    SpeechToTextAudioUrl = c.SpeechToTextAudioUrl
                 }).ToList();
 
                 // 計算分頁資訊
@@ -474,8 +478,15 @@ namespace NGO_WebAPI_Backend.Controllers
 
                 if (existingCase != null)
                 {
-                    _logger.LogWarning($"身分證字號 {request.IdentityNumber} 已存在");
-                    return BadRequest(new { message = "此身分證字號已存在" });  // 回傳 400 錯誤
+                    _logger.LogWarning($"身分證字號 {request.IdentityNumber} 已存在，個案 ID: {existingCase.CaseId}");
+                    return BadRequest(new { 
+                        message = $"此身分證字號已存在",
+                        errorType = "DUPLICATE_IDENTITY",
+                        existingCaseId = existingCase.CaseId,
+                        existingCaseName = existingCase.Name,
+                        existingCaseCreatedAt = existingCase.CreatedAt,
+                        suggestion = "請使用查詢功能搜尋該個案"
+                    });
                 }
 
                 // 驗證身分證字號格式
@@ -502,7 +513,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     ProfileImage = request.ProfileImage,
                     City = request.City,
                     District = request.District,
-                    DetailAddress = request.DetailAddress
+                    DetailAddress = request.DetailAddress,
+                    SpeechToTextAudioUrl = request.SpeechToTextAudioUrl
                 };
 
                 // 將新個案加入資料庫
@@ -533,7 +545,8 @@ namespace NGO_WebAPI_Backend.Controllers
                     City = createdCase.City,
                     District = createdCase.District,
                     DetailAddress = createdCase.DetailAddress,
-                    WorkerName = createdCase.Worker?.Name
+                    WorkerName = createdCase.Worker?.Name,
+                    SpeechToTextAudioUrl = createdCase.SpeechToTextAudioUrl
                 };
 
                 _logger.LogInformation($"成功建立個案 ID: {newCase.CaseId}");
@@ -629,6 +642,75 @@ namespace NGO_WebAPI_Backend.Controllers
                     return NotFound(new { message = "找不到指定的個案" });
                 }
 
+                // 檢查是否有相關資料存在
+                var relatedData = new List<string>();
+
+                // 檢查緊急物資需求
+                var emergencySupplyNeeds = await _context.EmergencySupplyNeeds
+                    .Where(e => e.CaseId == id)
+                    .CountAsync();
+                if (emergencySupplyNeeds > 0)
+                {
+                    relatedData.Add($"緊急物資需求 ({emergencySupplyNeeds} 筆)");
+                }
+
+                // 檢查常駐物資需求
+                var regularSuppliesNeeds = await _context.RegularSuppliesNeeds
+                    .Where(r => r.CaseId == id)
+                    .CountAsync();
+                if (regularSuppliesNeeds > 0)
+                {
+                    relatedData.Add($"常駐物資需求 ({regularSuppliesNeeds} 筆)");
+                }
+
+                // 檢查個案訂單
+                var caseOrders = await _context.CaseOrders
+                    .Where(c => c.CaseId == id)
+                    .CountAsync();
+                if (caseOrders > 0)
+                {
+                    relatedData.Add($"個案訂單 ({caseOrders} 筆)");
+                }
+
+                // 檢查活動報名
+                var caseActivityRegistrations = await _context.CaseActivityRegistrations
+                    .Where(c => c.CaseId == id)
+                    .CountAsync();
+                if (caseActivityRegistrations > 0)
+                {
+                    relatedData.Add($"活動報名 ({caseActivityRegistrations} 筆)");
+                }
+
+                // 檢查行程安排
+                var schedules = await _context.Schedules
+                    .Where(s => s.CaseId == id)
+                    .CountAsync();
+                if (schedules > 0)
+                {
+                    relatedData.Add($"行程安排 ({schedules} 筆)");
+                }
+
+                // 檢查個案登入資料
+                var caseLogin = await _context.CaseLogins
+                    .Where(c => c.CaseId == id)
+                    .CountAsync();
+                if (caseLogin > 0)
+                {
+                    relatedData.Add("個案登入資料 (1 筆)");
+                }
+
+                // 如果有相關資料，回傳詳細訊息
+                if (relatedData.Count > 0)
+                {
+                    var errorMessage = $"無法刪除個案，因為該個案還有以下相關資料：\n{string.Join("\n", relatedData)}\n\n請先刪除這些相關資料後再刪除個案。";
+                    _logger.LogWarning($"個案 ID: {id} 有相關資料，無法刪除。相關資料：{string.Join(", ", relatedData)}");
+                    return BadRequest(new { 
+                        message = "無法刪除個案", 
+                        details = errorMessage,
+                        relatedData = relatedData
+                    });
+                }
+
                 // 從資料庫中移除個案
                 _context.Cases.Remove(caseItem);
                 await _context.SaveChangesAsync();
@@ -636,10 +718,20 @@ namespace NGO_WebAPI_Backend.Controllers
                 _logger.LogInformation($"成功刪除個案 ID: {id}");
                 return NoContent();  // 回傳 204 No Content
             }
+            catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx && sqlEx.Number == 547)
+            {
+                // 外鍵約束錯誤
+                _logger.LogError(ex, $"刪除個案 ID: {id} 時發生外鍵約束錯誤");
+                return BadRequest(new { 
+                    message = "無法刪除個案", 
+                    details = "該個案還有相關的資料存在，請先刪除所有相關資料後再刪除個案。",
+                    error = "外鍵約束錯誤"
+                });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"刪除個案 ID: {id} 時發生錯誤");
-                return StatusCode(500, new { message = "刪除個案失敗" });
+                return StatusCode(500, new { message = "刪除個案失敗", error = ex.Message });
             }
         }
 
@@ -667,6 +759,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public string? City { get; set; }                          // 城市（可選）
         public string? District { get; set; }                      // 區域（可選）
         public string? DetailAddress { get; set; }                 // 詳細地址（可選）
+        public string? SpeechToTextAudioUrl { get; set; }          // 語音檔案 URL（可選）
     }
 
     /// <summary>
@@ -713,6 +806,7 @@ namespace NGO_WebAPI_Backend.Controllers
         public string? District { get; set; }                      // 區域
         public string? DetailAddress { get; set; }                 // 詳細地址
         public string? WorkerName { get; set; }                    // 工作人員姓名（關聯查詢）
+        public string? SpeechToTextAudioUrl { get; set; }          // 語音檔案 URL
     }
 
     /// <summary>

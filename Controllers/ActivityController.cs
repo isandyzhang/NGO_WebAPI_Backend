@@ -366,50 +366,166 @@ namespace NGO_WebAPI_Backend.Controllers
             }
         }
 
+        /// <summary>
+        /// 測試 Azure Blob Storage 連接
+        /// </summary>
+        [HttpGet("test-azure-connection")]
+        [AllowAnonymous]
+        public async Task<ActionResult<object>> TestAzureConnection()
+        {
+            try
+            {
+                _logger.LogInformation("開始測試 Azure Blob Storage 連接");
 
+                // 取得 Azure Storage 連接字串
+                var connectionString = _configuration.GetConnectionString("AzureStorage");
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    _logger.LogError("Azure Storage 連接字串未設定");
+                    return StatusCode(500, new { 
+                        success = false, 
+                        message = "Azure Storage 配置錯誤",
+                        error = "連接字串未設定"
+                    });
+                }
+
+                // 取得容器名稱
+                var containerName = _configuration["AzureStorage:ContainerName"] ?? "ngo";
+
+                // 建立 Blob 服務客戶端
+                var blobServiceClient = new BlobServiceClient(connectionString);
+                
+                // 測試連接
+                var properties = await blobServiceClient.GetPropertiesAsync();
+                
+                // 取得容器客戶端
+                var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                
+                // 檢查容器是否存在
+                var containerExists = await containerClient.ExistsAsync();
+                
+                if (!containerExists.Value)
+                {
+                    // 創建容器
+                    await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+                    _logger.LogInformation($"容器 {containerName} 已創建");
+                }
+
+                _logger.LogInformation("Azure Blob Storage 連接測試成功");
+
+                return Ok(new { 
+                    success = true, 
+                    message = "Azure Blob Storage 連接正常",
+                    containerName = containerName,
+                    containerExists = containerExists.Value
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Azure Blob Storage 連接測試失敗");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Azure Blob Storage 連接測試失敗", 
+                    error = ex.Message 
+                });
+            }
+        }
 
         /// <summary>
         /// 上傳圖片到 Azure Blob Storage
         /// </summary>
         [HttpPost("upload/image")]
         [AllowAnonymous]
-        public async Task<ActionResult<string>> UploadImage(IFormFile file)
+        public async Task<ActionResult<object>> UploadImage(IFormFile file)
         {
             try
             {
+                _logger.LogInformation("開始處理圖片上傳請求");
+
                 if (file == null || file.Length == 0)
                 {
+                    _logger.LogWarning("未選擇檔案或檔案為空");
                     return BadRequest(new { message = "請選擇圖片檔案" });
                 }
+
+                _logger.LogInformation($"檔案資訊: 名稱={file.FileName}, 大小={file.Length}, 類型={file.ContentType}");
 
                 // 驗證檔案類型
                 var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif" };
                 if (!allowedTypes.Contains(file.ContentType.ToLower()))
                 {
+                    _logger.LogWarning($"不支援的檔案類型: {file.ContentType}");
                     return BadRequest(new { message = "只支援 JPG、PNG、GIF 格式的圖片" });
                 }
 
                 // 驗證檔案大小 (5MB)
                 if (file.Length > 5 * 1024 * 1024)
                 {
+                    _logger.LogWarning($"檔案大小超過限制: {file.Length} bytes");
                     return BadRequest(new { message = "圖片檔案大小不能超過 5MB" });
                 }
 
-                // 上傳到 Azure Blob Storage
-                var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
-                var fakeUrl = $"https://fakeazure.blob.core.windows.net/activity-images/{fileName}";
-                
-                _logger.LogInformation($"圖片上傳模擬成功: {fileName}");
-                
-                // 模擬處理時間
-                await Task.Delay(500);
+                // 取得 Azure Storage 連接字串
+                var connectionString = _configuration.GetConnectionString("AzureStorage");
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    _logger.LogError("Azure Storage 連接字串未設定");
+                    return StatusCode(500, new { message = "Azure Storage 配置錯誤" });
+                }
 
-                // 回傳假的 Azure URL
-                return Ok(new { imageUrl = fakeUrl });
+                _logger.LogInformation("Azure Storage 連接字串已取得");
+
+                // 取得容器名稱和資料夾設定
+                var containerName = _configuration["AzureStorage:ContainerName"] ?? "ngo";
+                var activityImagesFolder = _configuration["AzureStorage:ActivityImagesFolder"] ?? "activity_images/";
+
+                _logger.LogInformation($"容器名稱: {containerName}, 資料夾: {activityImagesFolder}");
+
+                // 建立 Blob 服務客戶端
+                var blobServiceClient = new BlobServiceClient(connectionString);
+                var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+
+                _logger.LogInformation("Blob 服務客戶端已建立");
+
+                // 確保容器存在，並設定公開訪問權限
+                await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+                _logger.LogInformation("容器已確保存在並設定公開訪問權限");
+
+                // 生成唯一的檔案名稱
+                var fileExtension = Path.GetExtension(file.FileName);
+                var fileName = $"{activityImagesFolder}{Guid.NewGuid()}{fileExtension}";
+                
+                _logger.LogInformation($"開始上傳圖片到 Azure Blob Storage: {fileName}");
+
+                // 取得 Blob 客戶端
+                var blobClient = containerClient.GetBlobClient(fileName);
+
+                // 設定 Blob 的內容類型
+                var blobHttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = file.ContentType
+                };
+
+                // 上傳檔案到 Azure Blob Storage
+                using (var stream = file.OpenReadStream())
+                {
+                    await blobClient.UploadAsync(stream, new BlobUploadOptions
+                    {
+                        HttpHeaders = blobHttpHeaders
+                    });
+                }
+
+                // 取得上傳後的 URL
+                var imageUrl = blobClient.Uri.ToString();
+                
+                _logger.LogInformation($"圖片上傳成功: {imageUrl}");
+
+                // 回傳圖片 URL
+                return Ok(new { imageUrl = imageUrl });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "圖片上傳失敗");
+                _logger.LogError(ex, "圖片上傳到 Azure Blob Storage 失敗");
                 return StatusCode(500, new { message = "圖片上傳失敗", error = ex.Message });
             }
         }

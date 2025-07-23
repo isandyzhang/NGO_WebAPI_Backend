@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace NGO_WebAPI_Backend.Controllers
 {
@@ -10,11 +13,13 @@ namespace NGO_WebAPI_Backend.Controllers
     {
         private readonly NgoplatformDbContext _context;
         private readonly ILogger<EmergencySupplyNeedController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public EmergencySupplyNeedController(NgoplatformDbContext context, ILogger<EmergencySupplyNeedController> logger)
+        public EmergencySupplyNeedController(NgoplatformDbContext context, ILogger<EmergencySupplyNeedController> logger, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -250,6 +255,87 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogError(ex, "創建緊急物資需求失敗");
                 return StatusCode(500, new { message = "創建緊急物資需求失敗", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// 上傳緊急物資需求圖片到 Azure Blob Storage
+        /// </summary>
+        [HttpPost("upload/image")]
+        [AllowAnonymous]
+        public async Task<ActionResult<string>> UploadImage(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "請選擇圖片檔案" });
+                }
+
+                // 驗證檔案類型
+                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif" };
+                if (!allowedTypes.Contains(file.ContentType.ToLower()))
+                {
+                    return BadRequest(new { message = "只支援 JPG、PNG、GIF 格式的圖片" });
+                }
+
+                // 驗證檔案大小 (5MB)
+                if (file.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest(new { message = "圖片檔案大小不能超過 5MB" });
+                }
+
+                // 從配置中獲取 Azure Storage 設定
+                var connectionString = _configuration.GetConnectionString("AzureStorage");
+                var containerName = _configuration.GetValue<string>("AzureStorage:ContainerName");
+                var emergencySupplyFolder = _configuration.GetValue<string>("AzureStorage:EmergencySupplyFolder") ?? "emergency-supply/";
+
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    return StatusCode(500, new { message = "Azure Storage 連接字串未配置" });
+                }
+
+                // 建立 Azure Blob Service Client
+                var blobServiceClient = new BlobServiceClient(connectionString);
+                var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+
+                // 確保容器存在
+                await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+
+                // 生成唯一的檔案名稱
+                var fileExtension = Path.GetExtension(file.FileName).ToLower();
+                var fileName = $"{Guid.NewGuid()}{fileExtension}";
+                var blobName = $"{emergencySupplyFolder}{fileName}";
+
+                // 獲取 Blob Client
+                var blobClient = containerClient.GetBlobClient(blobName);
+
+                // 設定 Blob 的 Content-Type
+                var blobHttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = file.ContentType
+                };
+
+                // 上傳檔案到 Azure Blob Storage
+                using (var stream = file.OpenReadStream())
+                {
+                    await blobClient.UploadAsync(stream, new BlobUploadOptions
+                    {
+                        HttpHeaders = blobHttpHeaders
+                    });
+                }
+
+                // 回傳 Azure Blob URL
+                var imageUrl = blobClient.Uri.ToString();
+                
+                _logger.LogInformation($"緊急物資需求圖片上傳成功: {fileName}, URL: {imageUrl}");
+
+                return Ok(new { imageUrl = imageUrl });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "緊急物資需求圖片上傳失敗");
+                return StatusCode(500, new { message = "緊急物資需求圖片上傳失敗", error = ex.Message });
             }
         }
 
