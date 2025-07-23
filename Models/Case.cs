@@ -35,6 +35,10 @@ public partial class Case
 
     public string? DetailAddress { get; set; }
 
+    // public string? SpeechToText { get; set; }
+
+    public string? SpeechToTextAudioUrl { get; set; }
+
     public virtual ICollection<CaseActivityRegistration> CaseActivityRegistrations { get; set; } = new List<CaseActivityRegistration>();
 
     public virtual CaseLogin? CaseLogin { get; set; }

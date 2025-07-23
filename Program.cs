@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,11 +13,16 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        // 設定屬性名稱為 camelCase（前端期望的格式）
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
 
 // 配置 Entity Framework 和資料庫連線
 builder.Services.AddDbContext<NgoplatformDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 註冊 AI 服務
+builder.Services.AddScoped<AzureOpenAIService>();
 
 // 添加 CORS 支援（根據環境決定允許的來源）
 if (builder.Environment.IsDevelopment())
