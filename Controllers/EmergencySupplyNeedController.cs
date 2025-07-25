@@ -117,11 +117,11 @@ namespace NGO_WebAPI_Backend.Controllers
                 var statistics = new EmergencySupplyNeedStatistics
                 {
                     TotalRequests = emergencyNeeds.Count,
-                    PendingRequests = emergencyNeeds.Count(e => e.Status == "pending"),
-                    ApprovedRequests = emergencyNeeds.Count(e => e.Status == "approved"),
-                    RejectedRequests = emergencyNeeds.Count(e => e.Status == "rejected"),
-                    CompletedRequests = emergencyNeeds.Count(e => e.Status == "completed"),
-                    HighPriorityRequests = emergencyNeeds.Count(e => e.Priority == "high"),
+                    PendingRequests = emergencyNeeds.Count(e => e.Status == "Reviewing"),
+                    ApprovedRequests = emergencyNeeds.Count(e => e.Status == "Fundraising"),
+                    RejectedRequests = emergencyNeeds.Count(e => e.Status == "Rejected"),
+                    CompletedRequests = emergencyNeeds.Count(e => e.Status == "Completed"),
+                    HighPriorityRequests = emergencyNeeds.Count(e => e.Priority == "High"),
                     TotalQuantity = emergencyNeeds.Sum(e => e.Quantity ?? 0),
                     CollectedQuantity = emergencyNeeds.Sum(e => e.CollectedQuantity ?? 0)
                 };

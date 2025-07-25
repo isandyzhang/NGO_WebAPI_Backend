@@ -27,6 +27,46 @@ namespace NGO_WebAPI_Backend.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// 獲取所有排程活動 (管理員權限)
+        /// GET: /api/schedule
+        /// </summary>
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<object>>> GetAllSchedules()
+        {
+            try
+            {
+                _logger.LogInformation("開始獲取所有排程活動");
+                
+                var schedules = await _context.Schedules
+                    .Include(s => s.Worker) // 包含員工資訊
+                    .OrderByDescending(s => s.StartTime)
+                    .Select(s => new
+                    {
+                        s.ScheduleId,
+                        s.WorkerId,
+                        s.EventType,
+                        s.EventName,
+                        s.Description,
+                        s.StartTime,
+                        s.EndTime,
+                        s.Priority,
+                        s.Status,
+                        WorkerName = s.Worker != null ? s.Worker.Name : "未知員工",
+                        // 為了兼容前端 CalendarEvent 介面，添加必要欄位
+                        CaseId = s.CaseId
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation($"成功獲取 {schedules.Count} 筆所有排程活動");
+                return Ok(schedules);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "獲取所有排程活動時發生錯誤");
+                return StatusCode(500, new { message = "獲取排程活動失敗" });
+            }
+        }
 
         /// <summary>
         /// 搜尋指定員工 ID 的所有排程活動

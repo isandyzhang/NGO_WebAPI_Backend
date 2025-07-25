@@ -33,8 +33,11 @@ namespace NGO_WebAPI_Backend.Controllers
                         Id = temp.cr.RegistrationId,
                         CaseName = temp.c.Name ?? "未知個案",
                         ActivityName = a.ActivityName ?? "未知活動",
-                        Status = temp.cr.Status ?? "registered"
+                        Status = temp.cr.Status ?? "registered",
+                        RegisterTime = temp.cr.RegisterTime ?? DateTime.Now
                     })
+                    .OrderBy(r => r.Status == "pending" || r.Status == "registered" ? 0 : 1)  // 待審核優先
+                    .ThenBy(r => r.RegisterTime)  // 越早報名越前面
                     .ToListAsync();
 
                 _logger.LogInformation($"成功查詢到 {registrations.Count} 筆個案報名資料");
@@ -66,8 +69,11 @@ namespace NGO_WebAPI_Backend.Controllers
                         ActivityId = temp.ur.ActivityId,
                         ActivityName = a.ActivityName ?? $"活動{temp.ur.ActivityId}",
                         NumberOfCompanions = temp.ur.NumberOfCompanions ?? 0,
-                        Status = temp.ur.Status ?? "registered"
+                        Status = temp.ur.Status ?? "registered",
+                        RegisterTime = temp.ur.RegisterTime ?? DateTime.Now
                     })
+                    .OrderBy(r => r.Status == "pending" || r.Status == "registered" ? 0 : 1)  // 待審核優先
+                    .ThenBy(r => r.RegisterTime)  // 越早報名越前面
                     .ToListAsync();
 
                 _logger.LogInformation($"成功查詢到 {registrations.Count} 筆民眾報名資料");
@@ -187,6 +193,42 @@ namespace NGO_WebAPI_Backend.Controllers
             {
                 _logger.LogError(ex, $"更新民眾報名狀態時發生錯誤，ID: {id}");
                 return StatusCode(500, new { message = "更新狀態失敗", error = ex.Message });
+            }
+        }
+
+        // 獲取待審核報名數量統計
+        [HttpGet("pending-count")]
+        public async Task<ActionResult<object>> GetPendingRegistrationCount()
+        {
+            try
+            {
+                _logger.LogInformation("開始查詢待審核報名數量");
+
+                // 個案待審核報名數量
+                var pendingCaseCount = await _context.CaseActivityRegistrations
+                    .Where(r => r.Status == "registered" || r.Status == "pending")
+                    .CountAsync();
+
+                // 民眾待審核報名數量  
+                var pendingUserCount = await _context.UserActivityRegistrations
+                    .Where(r => r.Status == "registered" || r.Status == "pending")
+                    .CountAsync();
+
+                var result = new
+                {
+                    pendingCaseRegistrations = pendingCaseCount,
+                    pendingUserRegistrations = pendingUserCount,
+                    totalPendingRegistrations = pendingCaseCount + pendingUserCount
+                };
+
+                _logger.LogInformation($"待審核報名統計: 個案 {pendingCaseCount}, 民眾 {pendingUserCount}, 總計 {result.totalPendingRegistrations}");
+                
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "查詢待審核報名數量時發生錯誤");
+                return StatusCode(500, new { message = "查詢待審核報名數量失敗", error = ex.Message });
             }
         }
 
