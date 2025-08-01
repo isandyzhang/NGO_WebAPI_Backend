@@ -8,7 +8,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Data.SqlClient;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.CaseManagement
 {
     /// <summary>
     /// 個案管理控制器

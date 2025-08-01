@@ -6,7 +6,7 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient; // Added for SqlException
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
 {
     /// <summary>
     /// 活動管理控制器 

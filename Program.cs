@@ -1,6 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
 using NGO_WebAPI_Backend.Services;
+using NGO_WebAPI_Backend.Repositories;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using NGO_WebAPI_Backend.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +27,15 @@ builder.Services.AddDbContext<NgoplatformDbContext>(options =>
 
 // 註冊 AI 服務
 builder.Services.AddScoped<AzureOpenAIService>();
+
+// 註冊 Case 相關服務 - 新架構
+builder.Services.AddScoped<ICaseRepository, CaseRepository>();
+builder.Services.AddScoped<ICaseService, CaseService>();
+
+// 註冊 FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddFluentValidationClientsideAdapters();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateCaseDtoValidator>();
 
 // 添加 CORS 支援（根據環境決定允許的來源）
 if (builder.Environment.IsDevelopment())

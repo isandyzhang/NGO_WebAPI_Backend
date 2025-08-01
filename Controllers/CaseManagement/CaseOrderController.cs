@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.CaseManagement
 {
     [Route("api/[controller]")]
     [ApiController]

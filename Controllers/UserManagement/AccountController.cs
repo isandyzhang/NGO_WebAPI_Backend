@@ -4,7 +4,7 @@ using NGO_WebAPI_Backend.Models;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.UserManagement
 {
     [Route("api/[controller]")]
     [ApiController]

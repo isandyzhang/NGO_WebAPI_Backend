@@ -5,7 +5,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Authorization;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.SupplyManagement
 {
     [ApiController]
     [Route("api/[controller]")]

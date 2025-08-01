@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 using NGO_WebAPI_Backend.Models;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.UserManagement
 {
     /// <summary>
     /// 身份驗證控制器 - 處理登入相關功能

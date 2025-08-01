@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 using NGO_WebAPI_Backend.Models;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
 {
     [ApiController]
     [Route("api/[controller]")]

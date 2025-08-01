@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
 using System.Linq;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
 {
     /// <summary>
     /// 行事曆管理控制器

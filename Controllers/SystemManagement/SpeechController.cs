@@ -6,7 +6,7 @@ using System.Text;
 using NGO_WebAPI_Backend.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.SystemManagement
 {
     [ApiController]
     [Route("api/[controller]")]

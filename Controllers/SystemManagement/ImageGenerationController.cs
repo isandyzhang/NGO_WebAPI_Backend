@@ -3,7 +3,7 @@ using Azure;
 using Azure.AI.OpenAI;
 using System.Text.Json;
 
-namespace NGO_WebAPI_Backend.Controllers
+namespace NGO_WebAPI_Backend.Controllers.SystemManagement
 {
     [ApiController]
     [Route("api/[controller]")]
