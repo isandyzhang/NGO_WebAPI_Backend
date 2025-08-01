@@ -58,6 +58,30 @@ namespace NGO_WebAPI_Backend.Controllers
             return Ok(schedules);
         }
 
+        /// <summary>
+        /// 取得所有排程活動（管理員權限）
+        /// GET: /api/schedule
+        /// </summary>
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<object>>> GetAllSchedules()
+        {
+            var schedules = await _context.Schedules
+                .OrderByDescending(s => s.StartTime)
+                .Select(s => new
+                {
+                    s.ScheduleId,
+                    s.WorkerId,
+                    s.EventType,
+                    s.EventName,
+                    s.Description,
+                    s.StartTime,
+                    s.EndTime
+                })
+                .ToListAsync();
+
+            return Ok(schedules);
+        }
+
 
         /// <summary>
         /// 建立新的行事曆活動
