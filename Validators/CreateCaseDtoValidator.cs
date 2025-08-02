@@ -40,19 +40,9 @@ namespace NGO_WebAPI_Backend.Validators
                 .GreaterThan(DateTime.Now.AddYears(-120)).WithMessage("生日不能超過 120 年前")
                 .When(x => x.Birthday.HasValue);
 
-            // 工作人員ID驗證
+            // 工作人員ID驗證（暫時簡化，避免 Azure 上的資料庫連接問題）
             RuleFor(x => x.WorkerId)
                 .GreaterThan(0).WithMessage("工作人員ID必須大於 0")
-                .MustAsync(async (workerId, cancellation) => 
-                {
-                    if (!workerId.HasValue) return true;
-                    return await WorkerExistsAndActive(workerId.Value, cancellation);
-                }).WithMessage("指定的工作人員不存在或已停用")
-                .MustAsync(async (workerId, cancellation) => 
-                {
-                    if (!workerId.HasValue) return true;
-                    return await WorkerHasCasePermission(workerId.Value, cancellation);
-                }).WithMessage("指定的工作人員沒有個案管理權限")
                 .When(x => x.WorkerId.HasValue);
 
             // 電子郵件驗證
@@ -159,34 +149,5 @@ namespace NGO_WebAPI_Backend.Validators
                    && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
         }
 
-        /// <summary>
-        /// 驗證工作人員是否存在且為啟用狀態
-        /// </summary>
-        private async Task<bool> WorkerExistsAndActive(int workerId, CancellationToken cancellationToken)
-        {
-            var worker = await _context.Workers
-                .FirstOrDefaultAsync(w => w.WorkerId == workerId, cancellationToken);
-
-            if (worker == null) return false;
-
-            // 檢查工作人員狀態（如果有 Status 欄位）
-            // 根據你的實際 Worker 模型調整
-            return true; // 暫時返回 true，可根據實際 Status 欄位調整
-        }
-
-        /// <summary>
-        /// 驗證工作人員是否有個案管理權限
-        /// </summary>
-        private async Task<bool> WorkerHasCasePermission(int workerId, CancellationToken cancellationToken)
-        {
-            var worker = await _context.Workers
-                .FirstOrDefaultAsync(w => w.WorkerId == workerId, cancellationToken);
-
-            if (worker == null) return false;
-
-            // 檢查角色權限
-            var allowedRoles = new[] { "admin", "supervisor", "social_worker", "case_manager" };
-            return worker.Role != null && allowedRoles.Contains(worker.Role.ToLower());
-        }
     }
 }

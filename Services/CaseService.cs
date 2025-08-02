@@ -120,13 +120,7 @@ namespace NGO_WebAPI_Backend.Services
             {
                 _logger.LogInformation($"開始建立新個案，姓名: {createCaseDto.Name}");
 
-                // 驗證身分證字號格式
-                var validationResult = ValidateTaiwanIdentityNumber(createCaseDto.IdentityNumber);
-                if (!validationResult.IsValid)
-                {
-                    _logger.LogWarning($"身分證字號 {createCaseDto.IdentityNumber} 格式錯誤: {validationResult.ErrorMessage}");
-                    return ApiResponse<CaseDto>.ErrorResponse(validationResult.ErrorMessage);
-                }
+                // FluentValidation 已經會驗證身分證字號格式，這裡不需要重複驗證
 
                 // 檢查身分證字號是否已存在
                 var isExists = await _caseRepository.IsIdentityNumberExistsAsync(createCaseDto.IdentityNumber);
@@ -193,17 +187,9 @@ namespace NGO_WebAPI_Backend.Services
                     return ApiResponse<CaseDto>.ErrorResponse("找不到指定的個案");
                 }
 
-                // 驗證身分證字號（如果有更新）
+                // 檢查身分證字號是否已被其他個案使用（如果有更新）
                 if (!string.IsNullOrEmpty(updateCaseDto.IdentityNumber))
                 {
-                    var validationResult = ValidateTaiwanIdentityNumber(updateCaseDto.IdentityNumber);
-                    if (!validationResult.IsValid)
-                    {
-                        _logger.LogWarning($"身分證字號 {updateCaseDto.IdentityNumber} 格式錯誤: {validationResult.ErrorMessage}");
-                        return ApiResponse<CaseDto>.ErrorResponse(validationResult.ErrorMessage);
-                    }
-
-                    // 檢查身分證字號是否已被其他個案使用
                     var isExists = await _caseRepository.IsIdentityNumberExistsAsync(updateCaseDto.IdentityNumber, id);
                     if (isExists)
                     {
