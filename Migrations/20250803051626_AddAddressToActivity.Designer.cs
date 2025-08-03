@@ -12,8 +12,8 @@ using NGO_WebAPI_Backend.Models;
 namespace NGO_WebAPI_Backend.Migrations
 {
     [DbContext(typeof(NgoplatformDbContext))]
-    [Migration("20250723031836_AddSpeechFields")]
-    partial class AddSpeechFields
+    [Migration("20250803051626_AddAddressToActivity")]
+    partial class AddAddressToActivity
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -38,6 +38,11 @@ namespace NGO_WebAPI_Backend.Migrations
                         .HasMaxLength(100)
                         .IsUnicode(false)
                         .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("Category")
                         .HasMaxLength(10)
@@ -154,9 +159,6 @@ namespace NGO_WebAPI_Backend.Migrations
                         .HasColumnType("varchar(15)");
 
                     b.Property<string>("ProfileImage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SpeechToText")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SpeechToTextAudioUrl")

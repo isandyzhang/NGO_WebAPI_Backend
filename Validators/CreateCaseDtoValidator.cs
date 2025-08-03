@@ -71,10 +71,10 @@ namespace NGO_WebAPI_Backend.Validators
                 .MaximumLength(200).WithMessage("詳細地址不能超過 200 個字元")
                 .When(x => !string.IsNullOrEmpty(x.DetailAddress));
 
-            // 描述驗證
+            // 描述驗證（困難類別 - 必填）
             RuleFor(x => x.Description)
-                .MaximumLength(1000).WithMessage("描述不能超過 1000 個字元")
-                .When(x => !string.IsNullOrEmpty(x.Description));
+                .NotEmpty().WithMessage("困難類別不能為空")
+                .MaximumLength(1000).WithMessage("困難類別描述不能超過 1000 個字元");
 
             // 個人照片URL驗證
             RuleFor(x => x.ProfileImage)

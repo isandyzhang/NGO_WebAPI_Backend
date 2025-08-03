@@ -17,6 +17,7 @@ namespace NGO_WebAPI_Backend.Controllers.CaseManagement
     /// </summary>
     [ApiController]
     [Route("api/case")]
+    [Authorize]
     public class CaseController : ControllerBase
     {
         private readonly ICaseService _caseService;

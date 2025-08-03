@@ -105,52 +105,6 @@ namespace NGO_WebAPI_Backend.Controllers.SystemManagement
                 return StatusCode(500, new { success = false, message = "圖片生成失敗，請稍後再試" });
             }
         }
-
-        [HttpPost("test-connection")]
-        public async Task<IActionResult> TestConnection()
-        {
-            try
-            {
-                var endpoint = _configuration["AzureOpenAI:Endpoint"];
-                var key = _configuration["AzureOpenAI:ApiKey"];
-                var deploymentName = _configuration["AzureOpenAI:DalleDeploymentName"];
-
-                if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(key) || string.IsNullOrEmpty(deploymentName))
-                {
-                    return BadRequest(new { success = false, message = "Azure OpenAI 配置缺失" });
-                }
-
-                // 創建客戶端並測試連接
-                var client = new OpenAIClient(new Uri(endpoint), new AzureKeyCredential(key));
-
-                // 準備測試用的圖片生成選項
-                var testOptions = new ImageGenerationOptions
-                {
-                    Prompt = "A simple red circle",
-                    Size = ImageSize.Size1024x1024,
-                    Quality = ImageGenerationQuality.Standard,
-                    Style = ImageGenerationStyle.Natural,
-                    DeploymentName = deploymentName
-                };
-
-                // 嘗試生成圖片來測試連接
-                var response = await client.GetImageGenerationsAsync(testOptions);
-
-                if (response.Value.Data.Count > 0)
-                {
-                    return Ok(new { success = true, message = "Azure OpenAI 連接測試成功" });
-                }
-                else
-                {
-                    return StatusCode(500, new { success = false, message = "圖片生成測試失敗" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Azure OpenAI 連接測試失敗");
-                return StatusCode(500, new { success = false, message = $"連接測試失敗: {ex.Message}" });
-            }
-        }
     }
 
     public class ImageGenerationRequest

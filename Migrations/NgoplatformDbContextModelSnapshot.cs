@@ -36,6 +36,11 @@ namespace NGO_WebAPI_Backend.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<string>("Category")
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
@@ -151,9 +156,6 @@ namespace NGO_WebAPI_Backend.Migrations
                         .HasColumnType("varchar(15)");
 
                     b.Property<string>("ProfileImage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SpeechToText")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SpeechToTextAudioUrl")

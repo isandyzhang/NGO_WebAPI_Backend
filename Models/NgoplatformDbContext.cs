@@ -90,6 +90,9 @@ public partial class NgoplatformDbContext : DbContext
             entity.Property(e => e.Location)
                 .HasMaxLength(100)
                 .IsUnicode(false);
+            entity.Property(e => e.Address)
+                .HasMaxLength(500)
+                .IsUnicode(false);
             entity.Property(e => e.StartDate).HasColumnType("datetime");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)

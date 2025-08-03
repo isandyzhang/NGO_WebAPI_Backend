@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace NGO_WebAPI_Backend.Migrations
 {
     /// <inheritdoc />
-    public partial class AddSpeechFields : Migration
+    public partial class AddAddressToActivity : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -151,6 +151,7 @@ namespace NGO_WebAPI_Backend.Migrations
                     Description = table.Column<string>(type: "text", nullable: true),
                     ImageUrl = table.Column<string>(type: "varchar(255)", unicode: false, maxLength: 255, nullable: true),
                     Location = table.Column<string>(type: "varchar(100)", unicode: false, maxLength: 100, nullable: true),
+                    Address = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: true),
                     MaxParticipants = table.Column<int>(type: "int", nullable: true),
                     CurrentParticipants = table.Column<int>(type: "int", nullable: true),
                     StartDate = table.Column<DateTime>(type: "datetime", nullable: true),
@@ -191,7 +192,6 @@ namespace NGO_WebAPI_Backend.Migrations
                     City = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     District = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     DetailAddress = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
-                    SpeechToText = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     SpeechToTextAudioUrl = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>

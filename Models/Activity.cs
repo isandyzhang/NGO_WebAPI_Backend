@@ -15,6 +15,8 @@ public partial class Activity
 
     public string? Location { get; set; }
 
+    public string? Address { get; set; } // 新增：詳細地址欄位
+
      public int? MaxParticipants { get; set; }
 
     public int? CurrentParticipants { get; set; }

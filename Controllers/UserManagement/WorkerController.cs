@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Services;
 
 namespace NGO_WebAPI_Backend.Controllers.UserManagement
 {
@@ -9,10 +10,12 @@ namespace NGO_WebAPI_Backend.Controllers.UserManagement
     public class WorkerController : ControllerBase
     {
         private readonly NgoplatformDbContext _context;
+        private readonly IPasswordService _passwordService;
 
-        public WorkerController(NgoplatformDbContext context)
+        public WorkerController(NgoplatformDbContext context, IPasswordService passwordService)
         {
             _context = context;
+            _passwordService = passwordService;
         }
 
         /// <summary>
@@ -83,143 +86,109 @@ namespace NGO_WebAPI_Backend.Controllers.UserManagement
             }
         }
 
+
+
         /// <summary>
-        /// 取得所有工作人員列表
+        /// 創建新工作人員
         /// </summary>
-        /// <returns>工作人員列表</returns>
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetWorkers()
+        /// <param name="request">工作人員創建請求</param>
+        /// <returns>創建結果</returns>
+        [HttpPost]
+        public async Task<ActionResult<object>> CreateWorker([FromBody] CreateWorkerRequest request)
         {
             try
             {
-                var workers = await _context.Workers
-                    .Select(w => new
-                    {
-                        workerId = w.WorkerId,
-                        email = w.Email,
-                        name = w.Name,
-                        role = w.Role ?? "staff" // 預設為 staff 角色
-                    })
-                    .ToListAsync();
-
-                return Ok(workers);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "取得工作人員列表失敗", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// 工作人員登入驗證
-        /// </summary>
-        /// <param name="loginRequest">登入請求</param>
-        /// <returns>登入結果</returns>
-        [HttpPost("login")]
-        public async Task<ActionResult<object>> Login([FromBody] TestLoginRequest loginRequest)
-        {
-            try
-            {
-                // 查詢工作人員
-                var worker = await _context.Workers
-                    .Where(w => w.Email == loginRequest.Email)
-                    .Select(w => new
-                    {
-                        workerId = w.WorkerId,
-                        email = w.Email,
-                        name = w.Name,
-                        role = w.Role ?? "staff",
-                        password = w.Password
-                    })
+                // 檢查Email是否已存在
+                var existingWorker = await _context.Workers
+                    .Where(w => w.Email == request.Email)
                     .FirstOrDefaultAsync();
 
-                if (worker == null)
+                if (existingWorker != null)
                 {
-                    return BadRequest(new { success = false, message = "找不到對應的工作人員帳號" });
+                    return BadRequest(new { success = false, message = "此Email已被使用" });
                 }
 
-                // 簡單的密碼驗證 (實際應用中應該使用密碼雜湊)
-                if (worker.password != loginRequest.Password)
-                {
-                    return BadRequest(new { success = false, message = "密碼錯誤" });
-                }
+                // 雜湊密碼
+                var hashedPassword = _passwordService.HashPassword(request.Password);
 
-                // 登入成功，返回工作人員資訊 (不包含密碼)
-                var workerInfo = new
+                // 創建新工作人員
+                var worker = new Worker
                 {
-                    workerId = worker.workerId,
-                    email = worker.email,
-                    name = worker.name,
-                    role = worker.role
+                    Email = request.Email,
+                    Password = hashedPassword,
+                    Name = request.Name,
+                    Role = request.Role
                 };
 
-                return Ok(new
-                {
-                    success = true,
-                    message = "登入成功",
-                    worker = workerInfo
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "登入過程發生錯誤", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// 測試端點 - 檢查工作人員密碼（僅供開發測試）
-        /// </summary>
-        [HttpPost("test-password")]
-        public async Task<ActionResult<object>> TestPassword([FromBody] TestLoginRequest loginRequest)
-        {
-            try
-            {
-                var worker = await _context.Workers
-                    .Where(w => w.Email == loginRequest.Email)
-                    .Select(w => new
-                    {
-                        workerId = w.WorkerId,
-                        email = w.Email,
-                        name = w.Name,
-                        role = w.Role ?? "staff",
-                        password = w.Password,
-                        hasPassword = !string.IsNullOrEmpty(w.Password)
-                    })
-                    .FirstOrDefaultAsync();
-
-                if (worker == null)
-                {
-                    return NotFound(new { success = false, message = "找不到對應的工作人員帳號" });
-                }
+                _context.Workers.Add(worker);
+                await _context.SaveChangesAsync();
 
                 return Ok(new
                 {
                     success = true,
+                    message = "工作人員創建成功",
                     worker = new
                     {
-                        worker.workerId,
-                        worker.email,
-                        worker.name,
-                        worker.role,
-                        worker.hasPassword,
-                        passwordMatch = worker.password == loginRequest.Password,
-                        storedPassword = worker.password // 注意：生產環境中不應返回密碼
+                        workerId = worker.WorkerId,
+                        email = worker.Email,
+                        name = worker.Name,
+                        role = worker.Role
                     }
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "測試過程發生錯誤", error = ex.Message });
+                return StatusCode(500, new { success = false, message = "創建工作人員失敗", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// 更新工作人員密碼
+        /// </summary>
+        /// <param name="id">工作人員ID</param>
+        /// <param name="request">密碼更新請求</param>
+        /// <returns>更新結果</returns>
+        [HttpPut("{id}/password")]
+        public async Task<ActionResult<object>> UpdatePassword(int id, [FromBody] UpdatePasswordRequest request)
+        {
+            try
+            {
+                var worker = await _context.Workers.FindAsync(id);
+                if (worker == null)
+                {
+                    return NotFound(new { success = false, message = "找不到工作人員" });
+                }
+
+                // 雜湊新密碼
+                worker.Password = _passwordService.HashPassword(request.NewPassword);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, message = "密碼更新成功" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "密碼更新失敗", error = ex.Message });
             }
         }
     }
 
+
     /// <summary>
-    /// 測試登入請求模型
+    /// 創建工作人員請求模型
     /// </summary>
-    public class TestLoginRequest
+    public class CreateWorkerRequest
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Role { get; set; } = "staff";
+    }
+
+    /// <summary>
+    /// 更新密碼請求模型
+    /// </summary>
+    public class UpdatePasswordRequest
+    {
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

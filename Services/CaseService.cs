@@ -250,7 +250,8 @@ namespace NGO_WebAPI_Backend.Services
                     return ApiResponse<bool>.ErrorResponse("無法刪除個案", new
                     {
                         details = errorMessage,
-                        relatedData = relatedData
+                        relatedData = relatedData,
+                        message = "無法刪除個案"
                     });
                 }
 

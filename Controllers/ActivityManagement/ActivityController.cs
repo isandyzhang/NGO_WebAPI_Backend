@@ -5,6 +5,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient; // Added for SqlException
+using NGO_WebAPI_Backend.Services;
 
 namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
 {
@@ -56,6 +57,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
                     Description = a.Description,
                     ImageUrl = a.ImageUrl,
                     Location = a.Location ?? string.Empty,
+                    Address = a.Address, // 新增：包含詳細地址
                     MaxParticipants = a.MaxParticipants ?? 0,
                     CurrentParticipants = a.CurrentParticipants ?? 0,
                     StartDate = a.StartDate,
@@ -110,6 +112,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
                     Description = activity.Description,
                     ImageUrl = activity.ImageUrl,
                     Location = activity.Location ?? string.Empty,
+                    Address = activity.Address, // 新增：包含詳細地址
                     MaxParticipants = activity.MaxParticipants ?? 0,
                     CurrentParticipants = activity.CurrentParticipants ?? 0,
                     StartDate = activity.StartDate,
@@ -136,6 +139,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
         /// 建立新活動
         /// </summary>
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<ActivityResponse>> CreateActivity([FromBody] CreateActivityRequest request)
         {
             try
@@ -148,18 +152,43 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
                     return BadRequest(new { message = "無效的活動分類" });
                 }
 
+                // 從 JWT token 中取得 WorkerId
+                int? workerIdFromToken = JwtHelper.GetWorkerIdFromToken(this);
+                _logger.LogInformation($"從 JWT token 中取得的 WorkerId: {workerIdFromToken}");
+                
+                if (!workerIdFromToken.HasValue)
+                {
+                    _logger.LogWarning("無法從 JWT token 中取得 WorkerId");
+                    return Unauthorized(new { message = "無法從 token 中取得使用者資訊" });
+                }
+
+                // 使用 JWT token 中的 WorkerId，忽略請求中的 WorkerId
+                int actualWorkerId = workerIdFromToken.Value;
+                _logger.LogInformation($"使用的 WorkerId: {actualWorkerId}");
+
+                // 驗證 WorkerId 是否存在
+                var workerExists = await _context.Workers.AnyAsync(w => w.WorkerId == actualWorkerId);
+                _logger.LogInformation($"WorkerId {actualWorkerId} 是否存在於資料庫: {workerExists}");
+                
+                if (!workerExists)
+                {
+                    _logger.LogError($"工作人員 ID {actualWorkerId} 不存在於資料庫");
+                    return BadRequest(new { message = $"工作人員 ID {actualWorkerId} 不存在" });
+                }
+
                 var newActivity = new Activity
                 {
                     ActivityName = request.ActivityName,
                     Description = request.Description,
                     ImageUrl = request.ImageUrl,
                     Location = request.Location,
+                    Address = request.Address, // 新增：處理詳細地址
                     MaxParticipants = request.MaxParticipants,
                     CurrentParticipants = 0,
                     StartDate = request.StartDate,
                     EndDate = request.EndDate,
                     SignupDeadline = request.SignupDeadline.HasValue ? DateOnly.FromDateTime(request.SignupDeadline.Value) : null,
-                    WorkerId = request.WorkerId,
+                    WorkerId = actualWorkerId,
                     TargetAudience = request.TargetAudience,
                     Category = request.Category,
                     Status = "open"
@@ -179,6 +208,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
                     Description = createdActivity.Description,
                     ImageUrl = createdActivity.ImageUrl,
                     Location = createdActivity.Location ?? string.Empty,
+                    Address = createdActivity.Address, // 新增：包含詳細地址
                     MaxParticipants = createdActivity.MaxParticipants ?? 0,
                     CurrentParticipants = createdActivity.CurrentParticipants ?? 0,
                     StartDate = createdActivity.StartDate,
@@ -222,6 +252,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
                 if (request.Description != null) activity.Description = request.Description;
                 if (request.ImageUrl != null) activity.ImageUrl = request.ImageUrl;
                 if (request.Location != null) activity.Location = request.Location;
+                if (request.Address != null) activity.Address = request.Address; // 新增：處理詳細地址
                 if (request.MaxParticipants.HasValue) activity.MaxParticipants = request.MaxParticipants.Value;
                 if (request.CurrentParticipants.HasValue) activity.CurrentParticipants = request.CurrentParticipants.Value;
                 if (request.StartDate.HasValue) activity.StartDate = request.StartDate.Value;
@@ -340,6 +371,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
                     Description = a.Description,
                     ImageUrl = a.ImageUrl,
                     Location = a.Location ?? string.Empty,
+                    Address = a.Address, // 新增：包含詳細地址
                     MaxParticipants = a.MaxParticipants ?? 0,
                     CurrentParticipants = a.CurrentParticipants ?? 0,
                     StartDate = a.StartDate,
@@ -559,11 +591,12 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
         public string Location { get; set; } = string.Empty;
+        public string? Address { get; set; } // 新增：詳細地址欄位
         public int MaxParticipants { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public DateTime? SignupDeadline { get; set; }
-        public int WorkerId { get; set; }
+        public int? WorkerId { get; set; }
         public string? TargetAudience { get; set; }
         public string? Category { get; set; }
     }
@@ -574,6 +607,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
         public string? Location { get; set; }
+        public string? Address { get; set; } // 新增：詳細地址欄位
         public int? MaxParticipants { get; set; }
         public int? CurrentParticipants { get; set; }
         public DateTime? StartDate { get; set; }
@@ -591,6 +625,7 @@ namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
         public string Location { get; set; } = string.Empty;
+        public string? Address { get; set; } // 新增：詳細地址欄位
         public int MaxParticipants { get; set; }
         public int CurrentParticipants { get; set; }
         public DateTime? StartDate { get; set; }
