@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Models.Shared;
+using NGO_WebAPI_Backend.DTOs;
 using NGO_WebAPI_Backend.Services;
 
 namespace NGO_WebAPI_Backend.Controllers.CaseManagement

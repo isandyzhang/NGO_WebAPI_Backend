@@ -1,4 +1,4 @@
-namespace NGO_WebAPI_Backend.Models
+namespace NGO_WebAPI_Backend.DTOs
 {
     /// <summary>
     /// 個案資料傳輸物件

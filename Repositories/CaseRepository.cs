@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Models.Infrastructure;
+using NGO_WebAPI_Backend.Models.Domain.CaseManagement;
 
 namespace NGO_WebAPI_Backend.Repositories
 {

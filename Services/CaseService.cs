@@ -1,6 +1,8 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Models.Shared;
+using NGO_WebAPI_Backend.Models.Domain.CaseManagement;
+using NGO_WebAPI_Backend.DTOs;
 using NGO_WebAPI_Backend.Repositories;
 using System.Text.RegularExpressions;
 

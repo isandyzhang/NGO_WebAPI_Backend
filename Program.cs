@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Models.Infrastructure;
+using NGO_WebAPI_Backend.Models.Shared;
 using NGO_WebAPI_Backend.Services;
 using NGO_WebAPI_Backend.Repositories;
 using FluentValidation;
@@ -28,15 +29,24 @@ builder.Services.AddControllers()
 builder.Services.AddDbContext<NgoplatformDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 註冊 AI 服務
+# region 依賴注入服務註冊
+
+// === 資料存取層服務 ===
+builder.Services.AddScoped<ICaseRepository, CaseRepository>();
+
+// === 業務邏輯層服務 ===
+builder.Services.AddScoped<ICaseService, CaseService>();
+builder.Services.AddScoped<IPasswordService, PasswordService>();
+
+// === 外部服務整合 ===
 builder.Services.AddScoped<AzureOpenAIService>();
 
-// 註冊 Case 相關服務 - 新架構
-builder.Services.AddScoped<ICaseRepository, CaseRepository>();
-builder.Services.AddScoped<ICaseService, CaseService>();
+// TODO: 未來可加入的服務
+// builder.Services.AddScoped<IAzureStorageService, AzureStorageService>();
+// builder.Services.AddScoped<IEmailService, EmailService>();
+// builder.Services.AddScoped<INotificationService, NotificationService>();
 
-// 註冊密碼加密服務
-builder.Services.AddScoped<IPasswordService, PasswordService>();
+# endregion
 
 // 註冊 FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -130,30 +140,10 @@ if (app.Environment.IsDevelopment())
 {
     app.MapGet("/test-password", () =>
     {
-        NGO_WebAPI_Backend.TestPasswordEncryption.RunTests();
-        return "密碼加密測試已執行，請查看控制台輸出";
+        return "密碼加密測試端點已移除";
     });
 
-    // 密碼遷移端點
-    app.MapPost("/migrate-passwords", async (IServiceProvider serviceProvider) =>
-    {
-        using var scope = serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<NgoplatformDbContext>();
-        var passwordService = scope.ServiceProvider.GetRequiredService<IPasswordService>();
-        
-        var migrationTool = new NGO_WebAPI_Backend.PasswordMigrationTool(context, passwordService);
-        
-        try
-        {
-            await migrationTool.MigratePasswordsAsync();
-            await migrationTool.VerifyMigrationAsync();
-            return Results.Ok("密碼遷移完成！所有帳號密碼已設為 pw123456 並使用Argon2加密");
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest($"密碼遷移失敗: {ex.Message}");
-        }
-    });
+    // 密碼遷移端點已移除
 }
 
 // 控制器路由啟動

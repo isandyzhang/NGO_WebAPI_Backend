@@ -1,5 +1,5 @@
 using FluentValidation;
-using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.DTOs; using NGO_WebAPI_Backend.Models.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 

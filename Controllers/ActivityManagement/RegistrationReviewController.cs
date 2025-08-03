@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Models.Infrastructure;
 
 namespace NGO_WebAPI_Backend.Controllers.ActivityManagement
 {

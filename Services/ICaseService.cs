@@ -1,4 +1,5 @@
-using NGO_WebAPI_Backend.Models;
+using NGO_WebAPI_Backend.Models.Shared;
+using NGO_WebAPI_Backend.DTOs;
 
 namespace NGO_WebAPI_Backend.Services
 {
