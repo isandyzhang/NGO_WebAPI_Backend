@@ -243,10 +243,6 @@ AzureOpenAI__ApiKey=your-openai-key
 
 ## 📞 聯絡資訊
 
-- 開發者：[your-name]
-- Email：[your-email]
+- 開發者：Andy
+- Email:isandyzhang@gmail.com
 - 專案連結：[https://github.com/isandyzhang/NGO_WebAPI_Backend](https://github.com/isandyzhang/NGO_WebAPI_Backend)
-
-## 📄 授權
-
-此專案使用 MIT 授權 - 詳見 [LICENSE](LICENSE) 檔案。
